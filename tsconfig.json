@@ -16,7 +16,6 @@
     "incremental": true,
     "jsxImportSource": "react",
     "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["./*"]
     },
