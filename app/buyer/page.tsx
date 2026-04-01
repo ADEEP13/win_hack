@@ -205,7 +205,7 @@ export default function BuyerPortal() {
                         name="phone"
                         value={buyerForm.phone}
                         onChange={handleInputChange}
-                        maxLength="10"
+                        maxLength={10}
                         className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-agri-green"
                         placeholder="9876543210"
                         required
