@@ -54,7 +54,9 @@ export default function FarmerProfilePage() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/profile');
+      const res = await fetch('/api/profile', {
+        credentials: 'include',
+      });
       const data = await res.json();
 
       if (data.success && data.profile) {
@@ -94,6 +96,7 @@ export default function FarmerProfilePage() {
       const res = await fetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData),
       });
 

@@ -28,7 +28,9 @@ export function useAuth(): AuthContextType {
 
   const verifySession = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/verify-session');
+      const res = await fetch('/api/auth/verify-session', {
+        credentials: 'include',
+      });
       const data = await res.json();
       
       if (data.success && data.authenticated) {
@@ -52,6 +54,7 @@ export function useAuth(): AuthContextType {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ phone, userType }),
       });
       
@@ -80,6 +83,7 @@ export function useAuth(): AuthContextType {
         const res = await fetch('/api/auth/verify-otp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ phone, otp, userType, name, email, bankAccount }),
         });
 
@@ -103,7 +107,10 @@ export function useAuth(): AuthContextType {
 
   const logout = useCallback(async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
       setUser(null);
       setAuthenticated(false);
     } catch (error) {
