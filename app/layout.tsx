@@ -22,6 +22,7 @@ export default function RootLayout({
               <li><a href="/buyer" className="hover:text-agri-green font-medium">Buyer</a></li>
               <li><a href="/consumer" className="hover:text-agri-green font-medium">Consumer</a></li>
               <li><a href="/admin" className="hover:text-agri-green font-medium">Admin</a></li>
+              <li><a href="/ussd-simulation" className="hover:text-agri-green font-medium">📱 USSD</a></li>
             </ul>
           </nav>
         </header>
