@@ -52,8 +52,11 @@ export const qrService = {
     // Encode as a compact URL-safe string
     const qrData = Buffer.from(JSON.stringify(fullPayload)).toString('base64');
     
-    // Generate QR verification URL with provided baseUrl
-    const qrUrl = this.generateQRUrl(`qr_${Date.now()}_${Math.random().toString(36).substring(7)}`, baseUrl);
+    // Generate QR code ID FIRST (before URL generation)
+    const qrCodeId = `qr_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    
+    // Generate QR verification URL with embedded data (for offline support)
+    const qrUrl = this.generateOfflineQRUrl(qrCodeId, fullPayload, baseUrl);
     
     // Generate actual QR image
     let qrImage = '';
@@ -72,8 +75,6 @@ export const qrService = {
       console.error('Error generating QR image:', error);
       qrImage = ''; // Graceful fallback
     }
-    
-    const qrCodeId = `qr_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     
     const qrCode: QRCodeRecord = {
       id: qrCodeId,
@@ -129,11 +130,22 @@ export const qrService = {
   },
 
   /**
-   * Generate a scannable URL for the QR code
+   * Generate a scannable URL for the QR code (with embedded data for offline support)
    */
   generateQRUrl(qrId: string, baseUrl?: string): string {
     // Use provided baseUrl, environment variable, or default to localhost
     const url = baseUrl || process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://100.108.95.3:3001';
+    // Include the ID for backend lookup AND return the data in the URL for offline support
     return `${url}/verify-qr?id=${qrId}`;
+  },
+
+  /**
+   * Generate a fully-offline scannable URL with embedded base64 encoded data
+   */
+  generateOfflineQRUrl(qrId: string, payload: QRPayload, baseUrl?: string): string {
+    const url = baseUrl || process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://100.108.95.3:3001';
+    // Encode payload as base64 in URL
+    const encodedData = Buffer.from(JSON.stringify(payload)).toString('base64');
+    return `${url}/verify-qr?id=${qrId}&data=${encodeURIComponent(encodedData)}`;
   },
 };

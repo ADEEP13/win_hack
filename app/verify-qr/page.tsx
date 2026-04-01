@@ -19,12 +19,14 @@ interface QRVerificationData {
 function VerifyQRContent() {
   const searchParams = useSearchParams();
   const qrId = searchParams.get('id');
+  const embeddedData = searchParams.get('data');
   
   const [loading, setLoading] = useState(true);
   const [verified, setVerified] = useState(false);
   const [data, setData] = useState<QRVerificationData | null>(null);
   const [error, setError] = useState('');
   const [qrImage, setQrImage] = useState('');
+  const [verificationSource, setVerificationSource] = useState<'embedded' | 'api' | null>(null);
 
   useEffect(() => {
     if (!qrId) {
@@ -35,21 +37,46 @@ function VerifyQRContent() {
 
     const verifyQR = async () => {
       try {
-        const res = await fetch(`/api/qr/verify?id=${qrId}&format=json`);
-        const result = await res.json();
-
-        if (result.success) {
-          setVerified(true);
-          setData(result.data);
-          
-          // Also fetch the QR image
-          const imageRes = await fetch(`/api/qr/verify?id=${qrId}&format=image`);
-          const imageData = await imageRes.json();
-          if (imageData.qrImage) {
-            setQrImage(imageData.qrImage);
+        // FIRST: Try to use embedded data (offline mode)
+        if (embeddedData) {
+          try {
+            const decodedData = JSON.parse(
+              Buffer.from(decodeURIComponent(embeddedData), 'base64').toString('utf-8')
+            );
+            setVerified(true);
+            setData(decodedData);
+            setVerificationSource('embedded');
+            setLoading(false);
+            return;
+          } catch (e) {
+            console.warn('Failed to decode embedded data, trying API...');
           }
-        } else {
-          setError(result.error || 'Failed to verify QR code');
+        }
+
+        // SECOND: Try API endpoint 
+        try {
+          const res = await fetch(`/api/qr/verify?id=${qrId}&format=json`);
+          const result = await res.json();
+
+          if (result.success) {
+            setVerified(true);
+            setData(result.data);
+            setVerificationSource('api');
+            
+            // Also fetch the QR image
+            const imageRes = await fetch(`/api/qr/verify?id=${qrId}&format=image`);
+            const imageData = await imageRes.json();
+            if (imageData.qrImage) {
+              setQrImage(imageData.qrImage);
+            }
+          } else {
+            setError(result.error || 'Failed to verify QR code');
+          }
+        } catch (apiError) {
+          // API failed - if we had embedded data, we already showed it above
+          if (!embeddedData) {
+            setError('Unable to reach verification server and no offline data available');
+          }
         }
       } catch (err) {
         setError('Error verifying QR code');
@@ -60,7 +87,7 @@ function VerifyQRContent() {
     };
 
     verifyQR();
-  }, [qrId]);
+  }, [qrId, embeddedData]);
 
   if (loading) {
     return (
@@ -104,6 +131,21 @@ function VerifyQRContent() {
               <div className="text-6xl mb-4">✅</div>
               <h2 className="text-3xl font-bold mb-2">Verified & Authentic</h2>
               <p className="text-green-100 mb-6">This product is directly from a verified farmer</p>
+              
+              {/* Verification Source Badge */}
+              <div className="flex justify-center gap-2 mb-6">
+                {verificationSource === 'embedded' && (
+                  <span className="bg-green-700 text-green-100 px-3 py-1 rounded-full text-xs font-bold">
+                    🔐 Offline Verified
+                  </span>
+                )}
+                {verificationSource === 'api' && (
+                  <span className="bg-blue-700 text-blue-100 px-3 py-1 rounded-full text-xs font-bold">
+                    ⛓️ Server Verified
+                  </span>
+                )}
+              </div>
+              
               <div className="bg-white bg-opacity-20 rounded-lg p-4">
                 <p className="text-sm text-green-100">Blockchain-verified transaction</p>
                 <p className="font-mono text-xs text-green-100 break-all mt-2">{data.transactionHash}</p>
