@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidOTP, getSessionExpiryTime } from '@/lib/auth-utils';
 import { userOps, otpOps, sessionOps } from '@/lib/auth-db';
+import { createUserProfile } from '@/lib/profile-db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -72,6 +73,16 @@ export async function POST(request: NextRequest) {
         userType,
         verified: true,
       });
+      
+      // Also create user profile in profile database
+      await createUserProfile(phone, {
+        name: name || 'User',
+        email: email || undefined,
+        bankAccount: bankAccount || undefined,
+        userType,
+      });
+      
+      console.log(`✅ New user profile created for phone: ${phone}`);
     } else {
       user = userOps.update(user.id, {
         name: name || user.name,

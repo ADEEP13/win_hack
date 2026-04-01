@@ -199,12 +199,20 @@ export default function FarmerPortal() {
               </p>
             )}
           </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-600 transition"
-          >
-            🚪 Logout
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/farmer/profile')}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-600 transition"
+            >
+              👤 Profile
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-600 transition"
+            >
+              🚪 Logout
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
