@@ -26,19 +26,14 @@ interface SocketErrorPayload {
   error: string
 }
 
-interface Phone1State {
+interface PhoneState {
   phoneNumber: string
-  menuState: 'main' | 'sendMoney' | 'enterRecipient' | 'enterAmount' | 'enterPin' | 'waiting' | 'viewOffers' | 'listCrop' | 'marketRates'
+  menuState: 'main' | 'sendMoney' | 'enterRecipient' | 'enterAmount' | 'enterPin' | 'waiting' | 'viewOffers' | 'listCrop' | 'marketRates' | 'receivingRequest'
   display: string
   recipientPhone: string
   amount: string
   pin: string
   inputBuffer: string
-}
-
-interface Phone2State {
-  phoneNumber: string
-  display: string
   incomingRequest: USSDRequest | null
   selectedAction: 'accept' | 'reject' | null
 }
@@ -74,7 +69,7 @@ interface MarketRate {
 }
 
 export default function USSDSimulation() {
-  const [phone1, setPhone1] = useState<Phone1State>({
+  const [phone1, setPhone1] = useState<PhoneState>({
     phoneNumber: '9876543210',
     menuState: 'main',
     display: 'JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit',
@@ -82,11 +77,18 @@ export default function USSDSimulation() {
     amount: '',
     pin: '',
     inputBuffer: '',
+    incomingRequest: null,
+    selectedAction: null,
   })
 
-  const [phone2, setPhone2] = useState<Phone2State>({
+  const [phone2, setPhone2] = useState<PhoneState>({
     phoneNumber: '9988776655',
-    display: 'Welcome 🌾\nPress any key...',
+    menuState: 'main',
+    display: 'JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit',
+    recipientPhone: '',
+    amount: '',
+    pin: '',
+    inputBuffer: '',
     incomingRequest: null,
     selectedAction: null,
   })
@@ -123,19 +125,34 @@ export default function USSDSimulation() {
 
     newSocket.on('ussd_sent', (data: SocketRequestPayload) => {
       console.log('📤 USSD sent:', data)
-      setPhone1((prev) => ({
+      // Update the sender phone
+      const senderPhone = data.request.from === phone1.phoneNumber ? setPhone1 : setPhone2
+      senderPhone((prev) => ({
         ...prev,
         display: `✅ Request Sent!\n\nTo: ${data.request.to}\nAmount: ₹${data.request.amount}\n\nWaiting for approval...`,
         menuState: 'waiting',
         inputBuffer: '',
       }))
+      
+      // Update the receiver phone with incoming request
+      const receiverPhone = data.request.to === phone1.phoneNumber ? setPhone1 : setPhone2
+      receiverPhone((prev) => ({
+        ...prev,
+        incomingRequest: data.request,
+        menuState: 'receivingRequest',
+        display: `📥 Incoming Request\n\nFrom: ${data.request.from}\nAmount: ₹${data.request.amount}\n\n1. Accept\n2. Reject`,
+        selectedAction: null,
+      }))
     })
 
     newSocket.on('ussd_incoming', (data: SocketRequestPayload) => {
       console.log('📥 Incoming request:', data)
-      setPhone2((prev) => ({
+      // Update the receiver phone
+      const receiverPhone = data.request.to === phone1.phoneNumber ? setPhone1 : setPhone2
+      receiverPhone((prev) => ({
         ...prev,
         incomingRequest: data.request,
+        menuState: 'receivingRequest',
         display: `📥 Incoming Request\n\nFrom: ${data.request.from}\nAmount: ₹${data.request.amount}\n\n1. Accept\n2. Reject`,
         selectedAction: null,
       }))
@@ -143,11 +160,29 @@ export default function USSDSimulation() {
 
     newSocket.on('ussd_response_received', (data: SocketResponsePayload) => {
       const action = data.action === 'accept' ? '✅ Accepted' : '❌ Rejected'
-      setPhone1((prev) => ({
-        ...prev,
-        display: `${action}\n\nTransaction ${action.toLowerCase()}\n\nPress 0 for main menu`,
-        inputBuffer: '',
-      }))
+      // Update all phones that might be showing waiting state
+      setPhone1((prev) => {
+        if (prev.menuState === 'waiting') {
+          return {
+            ...prev,
+            display: `${action}\n\nTransaction ${action.toLowerCase()}\n\nPress 0 for main menu`,
+            inputBuffer: '',
+            menuState: 'main',
+          }
+        }
+        return prev
+      })
+      setPhone2((prev) => {
+        if (prev.menuState === 'waiting') {
+          return {
+            ...prev,
+            display: `${action}\n\nTransaction ${action.toLowerCase()}\n\nPress 0 for main menu`,
+            inputBuffer: '',
+            menuState: 'main',
+          }
+        }
+        return prev
+      })
     })
 
     newSocket.on('ussd_error', (data: SocketErrorPayload) => {
@@ -247,16 +282,21 @@ export default function USSDSimulation() {
     return display
   }
 
-  // Handle Phone 1 Keypad Input
-  const handlePhone1Keypad = (key: string) => {
-    let newState = { ...phone1 }
+  // Unified Keypad Handler for Both Phones
+  const handleKeypad = (key: string, phoneId: 'phone1' | 'phone2') => {
+    const currentPhone = phoneId === 'phone1' ? phone1 : phone2
+    const setPhone = phoneId === 'phone1' ? setPhone1 : setPhone2
+    const otherPhone = phoneId === 'phone1' ? phone2 : phone1
+
+    let newState = { ...currentPhone }
 
     if (key === '*') {
-      // Clear input
+      // Clear input - return to main menu
       newState.inputBuffer = ''
       newState.display = 'JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit'
       newState.menuState = 'main'
-      setPhone1(newState)
+      newState.incomingRequest = null
+      setPhone(newState)
       setMenuPage(0)
       return
     }
@@ -323,7 +363,7 @@ export default function USSDSimulation() {
             })
           }
 
-          newState.menuState = 'main'
+          newState.menuState = 'waiting'
           newState.amount = ''
           newState.pin = ''
           newState.recipientPhone = ''
@@ -373,17 +413,62 @@ export default function USSDSimulation() {
           newState.inputBuffer = ''
           setMenuPage(0)
         }
+      } else if (newState.menuState === 'receivingRequest') {
+        if (newState.inputBuffer === '1') {
+          // Accept
+          newState.display = '✅ Accepting...'
+          newState.selectedAction = 'accept'
+
+          if (socket && newState.incomingRequest) {
+            socket.emit('ussd_respond', {
+              requestId: newState.incomingRequest.id,
+              action: 'accept',
+            })
+          }
+
+          setTimeout(() => {
+            setPhone((prev) => ({
+              ...prev,
+              display: '✅ Request Accepted!\n\n✅ Payment confirmed\n\nPress 0 to exit',
+              incomingRequest: null,
+              inputBuffer: '',
+              menuState: 'main',
+            }))
+          }, 1000)
+          return
+        } else if (newState.inputBuffer === '2') {
+          // Reject
+          newState.display = '⏳ Rejecting...'
+          newState.selectedAction = 'reject'
+
+          if (socket && newState.incomingRequest) {
+            socket.emit('ussd_respond', {
+              requestId: newState.incomingRequest.id,
+              action: 'reject',
+            })
+          }
+
+          setTimeout(() => {
+            setPhone((prev) => ({
+              ...prev,
+              display: '❌ Request Rejected\n\nPress 0 to exit',
+              incomingRequest: null,
+              inputBuffer: '',
+              menuState: 'main',
+            }))
+          }, 1000)
+          return
+        }
       }
-      setPhone1(newState)
+      setPhone(newState)
       return
     }
 
-    // Regular number input - always update display with input buffer shown inside the screen
+    // Regular number input
     if (!isNaN(Number(key))) {
       newState.inputBuffer += key
 
       if (newState.menuState === 'main') {
-        // Show input in main menu
         newState.display = `JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit\n\nInput: ${newState.inputBuffer}`
       } else if (newState.menuState === 'enterRecipient') {
         newState.display = `Enter receiver phone\nnumber (10 digits):\n\n${newState.inputBuffer}${newState.inputBuffer.length < 10 ? '_' : ''}`
@@ -391,65 +476,15 @@ export default function USSDSimulation() {
         newState.display = `Enter amount (₹):\n\n${newState.inputBuffer}_`
       } else if (newState.menuState === 'enterPin') {
         newState.display = `Enter PIN (4 digits):\n\n${'*'.repeat(newState.inputBuffer.length)}${newState.inputBuffer.length < 4 ? '_' : ''}`
+      } else if (newState.menuState === 'receivingRequest') {
+        // Allow 1 or 2 for accept/reject
+        if (key === '1' || key === '2') {
+          newState.display = `📥 Incoming Request\n\nFrom: ${newState.incomingRequest?.from}\nAmount: ₹${newState.incomingRequest?.amount}\n\n1. Accept\n2. Reject\n\nInput: ${newState.inputBuffer}`
+        }
       }
 
-      setPhone1(newState)
+      setPhone(newState)
     }
-  }
-
-  // Handle Phone 2 Keypad Input
-  const handlePhone2Keypad = (key: string) => {
-    let newState = { ...phone2 }
-
-    if (!newState.incomingRequest) {
-      if (key === '*') {
-        newState.display = 'Welcome 🌾\nPress any key...'
-      }
-      setPhone2(newState)
-      return
-    }
-
-    if (key === '1') {
-      // Accept
-      newState.display = '✅ Accepting...'
-      newState.selectedAction = 'accept'
-
-      if (socket) {
-        socket.emit('ussd_respond', {
-          requestId: newState.incomingRequest.id,
-          action: 'accept',
-        })
-      }
-
-      setTimeout(() => {
-        newState.display = '✅ Request Accepted!\n\n✅ Payment confirmed\n\nPress 0 to exit'
-        newState.incomingRequest = null
-        setPhone2(newState)
-      }, 1000)
-    } else if (key === '2') {
-      // Reject
-      newState.display = '⏳ Rejecting...'
-      newState.selectedAction = 'reject'
-
-      if (socket) {
-        socket.emit('ussd_respond', {
-          requestId: newState.incomingRequest.id,
-          action: 'reject',
-        })
-      }
-
-      setTimeout(() => {
-        newState.display = '❌ Request Rejected\n\nPress 0 to exit'
-        newState.incomingRequest = null
-        setPhone2(newState)
-      }, 1000)
-    } else if (key === '0') {
-      newState.display = 'Welcome 🌾\nPress any key...'
-      newState.incomingRequest = null
-      newState.selectedAction = null
-    }
-
-    setPhone2(newState)
   }
 
   return (
@@ -470,23 +505,34 @@ export default function USSDSimulation() {
 
         {/* Main Layout: Two Phones */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Phone 1 - Sender */}
+          {/* Phone 1 - First User */}
           <div className="flex justify-center">
             <div className="w-80 bg-gradient-to-b from-gray-900 to-black rounded-3xl shadow-2xl border-8 border-gray-800 overflow-hidden">
               {/* Phone Header */}
               <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-3 text-white">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold">📤 SENDER</span>
+                  <span className="text-sm font-semibold">📱 USER 1</span>
                   <span className="text-xs">{phone1.phoneNumber}</span>
                 </div>
               </div>
 
               {/* Display Screen */}
-              <div className="bg-gray-900 p-4 m-4 rounded-lg border-2 border-gray-700 min-h-60 max-h-60 overflow-hidden flex flex-col justify-start">
-                <div className="text-green-400 font-mono text-sm whitespace-pre-wrap break-words">
+              <div className={`bg-gray-900 p-4 m-4 rounded-lg border-2 min-h-60 max-h-60 overflow-hidden flex flex-col justify-start ${
+                phone1.incomingRequest ? 'border-yellow-500' : 'border-gray-700'
+              }`}>
+                <div className={`font-mono text-sm whitespace-pre-wrap break-words ${
+                  phone1.incomingRequest ? 'text-yellow-400' : 'text-green-400'
+                }`}>
                   {phone1.display}
                 </div>
               </div>
+
+              {/* Incoming Request Indicator */}
+              {phone1.incomingRequest && (
+                <div className="bg-yellow-900 px-4 py-2 animate-pulse">
+                  <div className="text-yellow-400 font-mono text-center text-sm">🔔 INCOMING...</div>
+                </div>
+              )}
 
               {/* Numeric Keypad */}
               <div className="bg-black p-4">
@@ -494,7 +540,7 @@ export default function USSDSimulation() {
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <button
                       key={num}
-                      onClick={() => handlePhone1Keypad(String(num))}
+                      onClick={() => handleKeypad(String(num), 'phone1')}
                       className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95"
                     >
                       {num}
@@ -504,19 +550,19 @@ export default function USSDSimulation() {
 
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   <button
-                    onClick={() => handlePhone1Keypad('*')}
+                    onClick={() => handleKeypad('*', 'phone1')}
                     className="bg-red-700 hover:bg-red-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95"
                   >
                     * CLR
                   </button>
                   <button
-                    onClick={() => handlePhone1Keypad('0')}
+                    onClick={() => handleKeypad('0', 'phone1')}
                     className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95"
                   >
                     0
                   </button>
                   <button
-                    onClick={() => handlePhone1Keypad('#')}
+                    onClick={() => handleKeypad('#', 'phone1')}
                     className="bg-green-700 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95"
                   >
                     # OK
@@ -535,13 +581,15 @@ export default function USSDSimulation() {
               {/* Phone Header */}
               <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 text-white">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold">📥 RECEIVER</span>
+                  <span className="text-sm font-semibold">� USER 2</span>
                   <span className="text-xs">{phone2.phoneNumber}</span>
                 </div>
               </div>
 
               {/* Display Screen */}
-              <div className="bg-gray-900 p-4 m-4 rounded-lg border-2 border-gray-700 min-h-60 max-h-60 overflow-hidden flex flex-col justify-start">
+              <div className={`bg-gray-900 p-4 m-4 rounded-lg border-2 min-h-60 max-h-60 overflow-hidden flex flex-col justify-start ${
+                phone2.incomingRequest ? 'border-yellow-500' : 'border-gray-700'
+              }`}>
                 <div className={`font-mono text-sm whitespace-pre-wrap break-words ${
                   phone2.incomingRequest ? 'text-yellow-400' : 'text-green-400'
                 }`}>
@@ -551,8 +599,8 @@ export default function USSDSimulation() {
 
               {/* Request Status Light */}
               {phone2.incomingRequest && (
-                <div className="bg-red-900 px-4 py-2 animate-pulse">
-                  <div className="text-red-400 font-mono text-center text-sm">🔔 INCOMING...</div>
+                <div className="bg-yellow-900 px-4 py-2 animate-pulse">
+                  <div className="text-yellow-400 font-mono text-center text-sm">🔔 INCOMING...</div>
                 </div>
               )}
 
@@ -562,9 +610,8 @@ export default function USSDSimulation() {
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <button
                       key={num}
-                      onClick={() => handlePhone2Keypad(String(num))}
-                      className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95 disabled:opacity-50"
-                      disabled={!phone2.incomingRequest && num !== 0}
+                      onClick={() => handleKeypad(String(num), 'phone2')}
+                      className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95"
                     >
                       {num}
                     </button>
@@ -573,21 +620,20 @@ export default function USSDSimulation() {
 
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   <button
-                    onClick={() => handlePhone2Keypad('*')}
+                    onClick={() => handleKeypad('*', 'phone2')}
                     className="bg-red-700 hover:bg-red-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95"
                   >
                     * CLR
                   </button>
                   <button
-                    onClick={() => handlePhone2Keypad('0')}
+                    onClick={() => handleKeypad('0', 'phone2')}
                     className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95"
                   >
                     0
                   </button>
                   <button
-                    onClick={() => handlePhone2Keypad('#')}
-                    className="bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95 disabled:opacity-50"
-                    disabled={!phone2.incomingRequest}
+                    onClick={() => handleKeypad('#', 'phone2')}
+                    className="bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 active:scale-95"
                   >
                     # OK
                   </button>
@@ -603,14 +649,14 @@ export default function USSDSimulation() {
         {/* Info Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white">
           <div className="bg-gray-800 rounded-lg p-6">
-            <h3 className="text-lg font-bold mb-3">📋 How to Use</h3>
+            <h3 className="text-lg font-bold mb-3">📋 How to Use (Both Phones)</h3>
             <ol className="text-sm space-y-2 text-slate-300">
-              <li><strong>Send Money:</strong> Press 1 → Enter recipient → Amount → PIN (1234)</li>
+              <li><strong>Send Money:</strong> Press 1 → Enter recipient → Amount → PIN</li>
               <li><strong>View Offers:</strong> Press 2 → See active crop offers</li>
               <li><strong>List Crops:</strong> Press 3 → Browse crop info & prices</li>
               <li><strong>Market Rates:</strong> Press 4 → Check daily market rates</li>
               <li>Press # to submit, * to clear</li>
-              <li><strong>Receiver</strong> gets notification → Press 1 Accept or 2 Reject</li>
+              <li><strong>When receiving:</strong> Press 1 Accept or 2 Reject</li>
             </ol>
           </div>
 
