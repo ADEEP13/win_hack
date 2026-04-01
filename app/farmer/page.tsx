@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/lib/use-auth'
 import { useRouter } from 'next/navigation'
 
 export default function FarmerPortal() {
   const router = useRouter()
   const { user, loading: authLoading, authenticated, logout } = useAuth()
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -64,6 +65,17 @@ export default function FarmerPortal() {
   useEffect(() => {
     if (activeTab === 'offers' && formData.phone && formData.phone.length === 10) {
       fetchFarmerOffers(formData.phone)
+      
+      // Set up auto-polling every 3 seconds
+      pollIntervalRef.current = setInterval(() => {
+        fetchFarmerOffers(formData.phone)
+      }, 3000)
+    }
+    
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
     }
   }, [activeTab, formData.phone])
 
@@ -158,12 +170,41 @@ export default function FarmerPortal() {
 
       const data = await res.json()
       if (data.success) {
-        setOffers(offers.map(o => o.id === offerId ? { ...o, status } : o))
-        alert(`✅ Offer ${status}!`)
+        const updatedOffers = offers.map(o => {
+          if (o.id === offerId) {
+            return {
+              ...o,
+              status,
+              qrCodeId: data.qrCode?.id,
+              qrCodeImage: data.qrCode?.qrImage,
+              qrCodeUrl: data.qrCode?.qrUrl,
+            }
+          }
+          return o
+        })
+        setOffers(updatedOffers)
+        
+        if (status === 'accepted' && data.qrCode) {
+          alert(`✅ Offer accepted!\n\nQR Code Generated for authenticity proof.\nBoth buyer and you can scan this QR to verify the transaction.`)
+        } else {
+          alert(`✅ Offer ${status}!`)
+        }
       }
     } catch (error) {
       alert('❌ Failed to respond to offer')
     }
+  }
+
+  const handleDownloadQR = (offer: any) => {
+    if (!offer.qrCodeImage) {
+      alert('❌ QR code not available')
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = offer.qrCodeImage
+    link.download = `QR_${offer.id}.png`
+    link.click()
   }
 
   const mandiPrice = mandiPrices[formData.cropName as keyof typeof mandiPrices]
@@ -513,6 +554,31 @@ export default function FarmerPortal() {
                       {offer.message && (
                         <div className="bg-blue-50 p-3 rounded mb-4 text-sm">
                           <p className="text-slate-700">{offer.message}</p>
+                        </div>
+                      )}
+
+                      {offer.qrCodeImage && (
+                        <div className="bg-green-50 p-4 rounded mb-4 text-center border-2 border-green-200">
+                          <p className="text-sm font-bold text-green-800 mb-3">✅ QR Code Generated - Proof of Authenticity</p>
+                          <img src={offer.qrCodeImage} alt="QR Code" className="w-32 h-32 mx-auto" />
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => handleDownloadQR(offer)}
+                              className="flex-1 text-xs bg-green-600 text-white py-1 rounded font-bold hover:bg-green-700"
+                            >
+                              📥 Download QR
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (offer.qrCodeUrl) {
+                                  window.open(offer.qrCodeUrl, '_blank')
+                                }
+                              }}
+                              className="flex-1 text-xs bg-blue-600 text-white py-1 rounded font-bold hover:bg-blue-700"
+                            >
+                              🔍 Verify Online
+                            </button>
+                          </div>
                         </div>
                       )}
 

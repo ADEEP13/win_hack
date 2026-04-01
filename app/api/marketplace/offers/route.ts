@@ -122,21 +122,27 @@ export async function PUT(request: NextRequest) {
       const crop = marketplaceDB.crops.find((c) => c.id === offer.cropId);
       
       if (crop) {
-        qrCode = qrService.generateQRCode(offerId, {
-          transactionHash: offer.blockchainHash,
-          farmerId: crop.farmerId || "UNKNOWN",
-          farmerName: crop.farmerName,
-          farmerLocation: crop.farmerLocation || "Unknown",
-          cropType: crop.cropName,
-          quantity: crop.quantity.toString(),
-          harvestDate: crop.harvestedDate || new Date().toISOString(),
-          pricePerKg: offer.offerPrice,
-          timestamp: new Date().toISOString(),
-        });
+        try {
+          qrCode = await qrService.generateQRCode(offerId, {
+            transactionHash: offer.blockchainHash,
+            farmerId: crop.farmerId || "UNKNOWN",
+            farmerName: crop.farmerName,
+            farmerLocation: crop.farmerLocation || "Unknown",
+            cropType: crop.cropName,
+            quantity: crop.quantity.toString(),
+            harvestDate: crop.harvestedDate || new Date().toISOString(),
+            pricePerKg: offer.offerPrice,
+            timestamp: new Date().toISOString(),
+          });
 
-        // Store QR code ID with offer
-        (offer as any).qrCodeId = qrCode.id;
-        (offer as any).qrCodeUrl = qrService.generateQRUrl(qrCode.id);
+          // Store QR code ID and image with offer
+          (offer as any).qrCodeId = qrCode.id;
+          (offer as any).qrCodeUrl = qrCode.qrUrl;
+          (offer as any).qrCodeImage = qrCode.qrImage;
+        } catch (qrError) {
+          console.error("Error generating QR code:", qrError);
+          // Continue without QR code if generation fails
+        }
       }
     }
 
@@ -145,7 +151,8 @@ export async function PUT(request: NextRequest) {
       offer,
       qrCode,
       message: `Offer ${status} successfully`,
-      verificationUrl: qrCode ? qrService.generateQRUrl(qrCode.id) : null,
+      verificationUrl: qrCode ? qrCode.qrUrl : null,
+      qrCodeImage: qrCode ? qrCode.qrImage : null,
     });
   } catch (error) {
     console.error("Error updating offer:", error);

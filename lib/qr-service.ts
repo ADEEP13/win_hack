@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import QRCode from 'qrcode';
 
 export interface QRPayload {
   transactionHash: string;
@@ -13,17 +14,19 @@ export interface QRPayload {
   signature: string;
 }
 
-export interface QRCode {
+export interface QRCodeRecord {
   id: string;
   offerId: string;
   payload: QRPayload;
   qrData: string; // Encoded payload
+  qrImage: string; // Base64 PNG image
+  qrUrl: string; // Verification URL
   createdAt: string;
   scans: number;
 }
 
 // In-memory QR storage (replace with DB in production)
-const qrCodes: Map<string, QRCode> = new Map();
+const qrCodes: Map<string, QRCodeRecord> = new Map();
 
 export const qrService = {
   /**
@@ -38,7 +41,7 @@ export const qrService = {
   /**
    * Create a QR code payload and encode it
    */
-  generateQRCode(offerId: string, payload: Omit<QRPayload, 'signature'>): QRCode {
+  async generateQRCode(offerId: string, payload: Omit<QRPayload, 'signature'>): Promise<QRCodeRecord> {
     const signature = this.generateSignature(payload);
     
     const fullPayload: QRPayload = {
@@ -49,23 +52,48 @@ export const qrService = {
     // Encode as a compact URL-safe string
     const qrData = Buffer.from(JSON.stringify(fullPayload)).toString('base64');
     
-    const qrCode: QRCode = {
-      id: `qr_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+    // Generate QR verification URL
+    const qrUrl = this.generateQRUrl(`qr_${Date.now()}_${Math.random().toString(36).substring(7)}`);
+    
+    // Generate actual QR image
+    let qrImage = '';
+    try {
+      qrImage = await QRCode.toDataURL(qrUrl, {
+        errorCorrectionLevel: 'H',
+        type: 'image/png',
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
+      });
+    } catch (error) {
+      console.error('Error generating QR image:', error);
+      qrImage = ''; // Graceful fallback
+    }
+    
+    const qrCodeId = `qr_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    
+    const qrCode: QRCodeRecord = {
+      id: qrCodeId,
       offerId,
       payload: fullPayload,
       qrData,
+      qrImage,
+      qrUrl,
       createdAt: new Date().toISOString(),
       scans: 0,
     };
 
-    qrCodes.set(qrCode.id, qrCode);
+    qrCodes.set(qrCodeId, qrCode);
     return qrCode;
   },
 
   /**
    * Verify and retrieve QR code data
    */
-  verifyQRCode(qrId: string): QRCode | null {
+  verifyQRCode(qrId: string): QRCodeRecord | null {
     const qr = qrCodes.get(qrId);
     if (!qr) return null;
 
@@ -88,14 +116,14 @@ export const qrService = {
   /**
    * Get QR code by ID
    */
-  getQRCode(qrId: string): QRCode | null {
+  getQRCode(qrId: string): QRCodeRecord | null {
     return qrCodes.get(qrId) || null;
   },
 
   /**
    * Get all QR codes for a consumer
    */
-  getConsumerQRCodes(consumerPhone: string): QRCode[] {
+  getConsumerQRCodes(consumerPhone: string): QRCodeRecord[] {
     // In production, filter from database by consumer
     return Array.from(qrCodes.values());
   },

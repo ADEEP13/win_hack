@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/lib/use-auth'
 import { useRouter } from 'next/navigation'
 
 export default function BuyerPortal() {
   const router = useRouter()
   const { user, loading: authLoading, authenticated, logout } = useAuth()
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const [crops, setCrops] = useState<any[]>([])
   const [offers, setOffers] = useState<any[]>([])
@@ -53,6 +54,17 @@ export default function BuyerPortal() {
   useEffect(() => {
     if (activeTab === 'myOffers' && buyerForm.phone) {
       fetchMyOffers(buyerForm.phone)
+      
+      // Set up auto-polling every 3 seconds
+      pollIntervalRef.current = setInterval(() => {
+        fetchMyOffers(buyerForm.phone)
+      }, 3000)
+    }
+    
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
     }
   }, [activeTab, buyerForm.phone])
 
@@ -151,6 +163,18 @@ export default function BuyerPortal() {
   const handleInputChange = (e: any) => {
     const { name, value } = e.target
     setBuyerForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleDownloadQR = (offer: any) => {
+    if (!offer.qrCodeImage) {
+      alert('❌ QR code not available')
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = offer.qrCodeImage
+    link.download = `QR_${offer.id}.png`
+    link.click()
   }
 
   const handleLogout = async () => {
@@ -474,6 +498,31 @@ export default function BuyerPortal() {
                       {offer.message && (
                         <div className="bg-blue-50 p-3 rounded mb-4 text-sm">
                           <p className="text-slate-700">Your message: {offer.message}</p>
+                        </div>
+                      )}
+
+                      {offer.qrCodeImage && (
+                        <div className="bg-green-50 p-4 rounded mb-4 text-center border-2 border-green-200">
+                          <p className="text-sm font-bold text-green-800 mb-3">✅ QR Code Generated - Proof of Authenticity</p>
+                          <img src={offer.qrCodeImage} alt="QR Code" className="w-32 h-32 mx-auto" />
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => handleDownloadQR(offer)}
+                              className="flex-1 text-xs bg-green-600 text-white py-1 rounded font-bold hover:bg-green-700"
+                            >
+                              📥 Download QR
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (offer.qrCodeUrl) {
+                                  window.open(offer.qrCodeUrl, '_blank')
+                                }
+                              }}
+                              className="flex-1 text-xs bg-blue-600 text-white py-1 rounded font-bold hover:bg-blue-700"
+                            >
+                              🔍 Verify Online
+                            </button>
+                          </div>
                         </div>
                       )}
 
