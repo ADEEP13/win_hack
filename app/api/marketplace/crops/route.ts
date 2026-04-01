@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Mock database - in production, use PostgreSQL
-const cropsDatabase: any[] = [];
-const offersDatabase: any[] = [];
+import { marketplaceDB } from "@/lib/marketplace-db";
 
 // POST - Farmer lists a new crop
 export async function POST(request: NextRequest) {
@@ -31,7 +28,7 @@ export async function POST(request: NextRequest) {
       blockchainHash: "0x" + Math.random().toString(16).substr(2, 40),
     };
 
-    cropsDatabase.push(newCrop);
+    marketplaceDB.crops.push(newCrop);
 
     return NextResponse.json({
       success: true,
@@ -52,7 +49,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const farmerPhone = searchParams.get("farmerPhone");
 
-    let crops = cropsDatabase.filter((c) => c.status === "active");
+    let crops = marketplaceDB.crops.filter((c) => c.status === "active");
 
     // If farmerPhone is provided, return only that farmer's crops
     if (farmerPhone) {

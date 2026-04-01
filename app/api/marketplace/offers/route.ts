@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Mock database
-const offersDatabase: any[] = [];
-const cropsDatabase: any[] = [];
+import { marketplaceDB } from "@/lib/marketplace-db";
 
 // POST - Buyer makes an offer on a crop
 export async function POST(request: NextRequest) {
@@ -31,7 +28,7 @@ export async function POST(request: NextRequest) {
       blockchainHash: "0x" + Math.random().toString(16).substr(2, 40),
     };
 
-    offersDatabase.push(newOffer);
+    marketplaceDB.offers.push(newOffer);
 
     return NextResponse.json({
       success: true,
@@ -53,7 +50,7 @@ export async function GET(request: NextRequest) {
     const farmerPhone = searchParams.get("farmerPhone");
     const cropId = searchParams.get("cropId");
 
-    let offers = [...offersDatabase];
+    let offers = [...marketplaceDB.offers];
 
     if (farmerPhone && cropId) {
       // Get all offers for a specific crop of a specific farmer
@@ -61,11 +58,13 @@ export async function GET(request: NextRequest) {
         (o) => o.cropId === cropId
       );
     } else if (farmerPhone) {
-      // Get all offers received by a farmer (we need to match phone with crops)
-      offers = offers.filter((o) => {
-        // This would require fetching crops first in production
-        return true; // Simplified for now
-      });
+      // Get all offers received by a farmer
+      // 1. Find all crops owned by this farmer
+      const farmerCrops = marketplaceDB.crops.filter((c) => c.farmerPhone === farmerPhone);
+      const farmerCropIds = farmerCrops.map((c) => c.id);
+      
+      // 2. Filter offers that match those crops
+      offers = offers.filter((o) => farmerCropIds.includes(o.cropId));
     }
 
     return NextResponse.json({
@@ -94,7 +93,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const offer = offersDatabase.find((o) => o.id === offerId);
+    const offer = marketplaceDB.offers.find((o) => o.id === offerId);
     if (!offer) {
       return NextResponse.json(
         { error: "Offer not found" },
