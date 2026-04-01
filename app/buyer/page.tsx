@@ -1,8 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/lib/use-auth'
+import { useRouter } from 'next/navigation'
 
 export default function BuyerPortal() {
+  const router = useRouter()
+  const { user, loading: authLoading, authenticated, logout } = useAuth()
+  
   const [crops, setCrops] = useState<any[]>([])
   const [offers, setOffers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -18,6 +23,20 @@ export default function BuyerPortal() {
   const [selectedCrop, setSelectedCrop] = useState<any>(null)
   const [offerPrice, setOfferPrice] = useState('')
   const [buyerPhone, setBuyerPhone] = useState('')
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !authenticated) {
+      router.push('/buyer/login')
+    }
+  }, [authenticated, authLoading, router])
+
+  // Auto-fill phone and name from authenticated user
+  useEffect(() => {
+    if (user?.phone) {
+      setBuyerForm(prev => ({ ...prev, phone: user.phone, name: user.name }))
+    }
+  }, [user])
 
   useEffect(() => {
     fetchAvailableCrops()
@@ -134,10 +153,44 @@ export default function BuyerPortal() {
     setBuyerForm(prev => ({ ...prev, [name]: value }))
   }
 
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to logout?')) {
+      await logout()
+      router.push('/buyer/login')
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">🏪</div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-agri-green mb-8">🏪 Buyer Marketplace</h1>
+        {/* Header with User Info and Logout */}
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-agri-green mb-2">🏪 Buyer Marketplace</h1>
+            {user && (
+              <p className="text-slate-600">
+                Welcome, <span className="font-bold">{user.name}</span> ({user.phone})
+              </p>
+            )}
+          </div>
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-600 transition"
+          >
+            🚪 Logout
+          </button>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-4 mb-8 border-b">

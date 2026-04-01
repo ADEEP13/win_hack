@@ -1,8 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/lib/use-auth'
+import { useRouter } from 'next/navigation'
 
 export default function FarmerPortal() {
+  const router = useRouter()
+  const { user, loading: authLoading, authenticated, logout } = useAuth()
+  
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -26,6 +31,20 @@ export default function FarmerPortal() {
     Cotton: 5850,
     Potato: 25,
   })
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !authenticated) {
+      router.push('/farmer/login')
+    }
+  }, [authenticated, authLoading, router])
+
+  // Auto-fill phone from authenticated user
+  useEffect(() => {
+    if (user?.phone) {
+      setFormData(prev => ({ ...prev, phone: user.phone, name: user.name }))
+    }
+  }, [user])
 
   // Fetch farmer's crops when phone is saved
   useEffect(() => {
@@ -149,10 +168,44 @@ export default function FarmerPortal() {
 
   const mandiPrice = mandiPrices[formData.cropName as keyof typeof mandiPrices]
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">👨‍🌾</div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to logout?')) {
+      await logout()
+      router.push('/farmer/login')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-agri-green mb-8">👨‍🌾 Farmer Portal</h1>
+        {/* Header with User Info and Logout */}
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-agri-green mb-2">👨‍🌾 Farmer Portal</h1>
+            {user && (
+              <p className="text-slate-600">
+                Welcome, <span className="font-bold">{user.name}</span> ({user.phone})
+              </p>
+            )}
+          </div>
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-600 transition"
+          >
+            🚪 Logout
+          </button>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-4 mb-8 border-b">
