@@ -17,10 +17,18 @@ export default function BuyerPortal() {
 
   const [selectedCrop, setSelectedCrop] = useState<any>(null)
   const [offerPrice, setOfferPrice] = useState('')
+  const [buyerPhone, setBuyerPhone] = useState('')
 
   useEffect(() => {
     fetchAvailableCrops()
   }, [])
+
+  // Fetch offers when switching to "My Offers" tab
+  useEffect(() => {
+    if (activeTab === 'myOffers' && buyerForm.phone) {
+      fetchMyOffers(buyerForm.phone)
+    }
+  }, [activeTab, buyerForm.phone])
 
   const fetchAvailableCrops = async () => {
     try {
@@ -31,6 +39,31 @@ export default function BuyerPortal() {
       }
     } catch (error) {
       console.error('Failed to fetch crops:', error)
+    }
+  }
+
+  const fetchMyOffers = async (phone: string) => {
+    if (!phone) return
+    try {
+      const res = await fetch(`/api/marketplace/offers?buyerPhone=${phone}`)
+      const data = await res.json()
+      if (data.success) {
+        // Enrich offers with crop details
+        const enrichedOffers = data.offers.map((offer: any) => {
+          const crop = crops.find((c: any) => c.id === offer.cropId)
+          return {
+            ...offer,
+            cropName: crop?.cropName || 'Unknown Crop',
+            farmerName: crop?.farmerName || 'Unknown Farmer',
+          }
+        })
+        // Merge API offers with local offers, preferring API data for latest status
+        const apiOfferIds = new Set(enrichedOffers.map((o: any) => o.id))
+        const localOffersNotInAPI = offers.filter((o) => !apiOfferIds.has(o.id))
+        setOffers([...enrichedOffers, ...localOffersNotInAPI])
+      }
+    } catch (error) {
+      console.error('Failed to fetch offers:', error)
     }
   }
 
@@ -66,7 +99,13 @@ export default function BuyerPortal() {
 
       const data = await res.json()
       if (data.success) {
-        setOffers([...offers, data.offer])
+        // Enrich offer with crop details
+        const enrichedOffer = {
+          ...data.offer,
+          cropName: selectedCrop.cropName,
+          farmerName: selectedCrop.farmerName,
+        }
+        setOffers([...offers, enrichedOffer])
         alert(`✅ Offer submitted to farmer!\nBlockchain Hash: ${data.offer.blockchainHash}`)
         setSelectedCrop(null)
         setOfferPrice('')

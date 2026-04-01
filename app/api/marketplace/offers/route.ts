@@ -43,16 +43,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET - Fetch offers for a farmer or a crop
+// GET - Fetch offers for a farmer, buyer, or a crop
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const farmerPhone = searchParams.get("farmerPhone");
+    const buyerPhone = searchParams.get("buyerPhone");
     const cropId = searchParams.get("cropId");
 
     let offers = [...marketplaceDB.offers];
 
-    if (farmerPhone && cropId) {
+    if (buyerPhone) {
+      // Get all offers made by a specific buyer
+      offers = offers.filter((o) => o.buyerPhone === buyerPhone);
+    } else if (farmerPhone && cropId) {
       // Get all offers for a specific crop of a specific farmer
       offers = offers.filter(
         (o) => o.cropId === cropId
