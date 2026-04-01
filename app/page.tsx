@@ -1,6 +1,17 @@
 export default function Home() {
   return (
     <div className="space-y-12">
+      {/* Top Navigation */}
+      <nav className="flex justify-between items-center py-6 px-8 bg-white shadow-sm sticky top-0 z-50">
+        <div className="text-2xl font-bold text-agri-green">🌾 JanDhan Plus</div>
+        <a
+          href="/login"
+          className="bg-agri-green text-white px-6 py-2 rounded-lg font-bold hover:opacity-90 transition"
+        >
+          Login / Sign Up
+        </a>
+      </nav>
+
       {/* Hero Section */}
       <section className="text-center py-20">
         <h1 className="text-5xl font-bold mb-4 text-agri-green">
@@ -11,6 +22,13 @@ export default function Home() {
           No middlemen. No hidden costs. Every transaction recorded immutably.
         </p>
 
+        <a
+          href="/login"
+          className="inline-block bg-agri-green text-white px-8 py-3 rounded-lg text-lg font-bold hover:opacity-90 transition mb-16"
+        >
+          Get Started Now →
+        </a>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-16">
           {/* Farmer */}
           <div className="bg-white rounded-lg shadow-md p-8 text-center hover:shadow-lg transition">
@@ -20,10 +38,10 @@ export default function Home() {
               List your crops at fair prices. Get paid directly. No middlemen taking your profit.
             </p>
             <a
-              href="/farmer"
+              href="/login"
               className="inline-block bg-agri-green text-white px-6 py-2 rounded-lg hover:opacity-90 transition"
             >
-              Enter Portal
+              Login as Farmer
             </a>
           </div>
 
@@ -35,10 +53,10 @@ export default function Home() {
               Connect directly with farmers. Get fresh produce at fair prices. Verified quality.
             </p>
             <a
-              href="/buyer"
+              href="/login"
               className="inline-block bg-agri-green text-white px-6 py-2 rounded-lg hover:opacity-90 transition"
             >
-              Browse Marketplace
+              Login as Buyer
             </a>
           </div>
 
@@ -50,10 +68,10 @@ export default function Home() {
               Scan QR codes. See where your food came from. Know you paid fairly. Trust verified.
             </p>
             <a
-              href="/consumer"
+              href="/login"
               className="inline-block bg-agri-green text-white px-6 py-2 rounded-lg hover:opacity-90 transition"
             >
-              Scan & Trace
+              Login as Consumer
             </a>
           </div>
 
@@ -65,10 +83,10 @@ export default function Home() {
               Monitor all transactions. Detect fraud. See live blockchain records. Full transparency.
             </p>
             <a
-              href="/admin"
+              href="/login"
               className="inline-block bg-agri-green text-white px-6 py-2 rounded-lg hover:opacity-90 transition"
             >
-              Dashboard
+              Login as Admin
             </a>
           </div>
         </div>
