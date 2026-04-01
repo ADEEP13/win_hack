@@ -14,6 +14,8 @@ interface UserProfile {
   city?: string;
   state?: string;
   profileImage?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export default function BuyerProfilePage() {
