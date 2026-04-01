@@ -102,3 +102,8 @@ export const sessionOps = {
     indices.forEach(i => authDB.sessions.splice(i, 1));
   },
 };
+
+// Helper function to get session by token/id
+export async function getSession(sessionToken: string) {
+  return sessionOps.findByToken(sessionToken);
+}

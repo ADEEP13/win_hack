@@ -5,15 +5,15 @@ import { getUserProfile, updateUserProfile } from '@/lib/profile-db';
 export async function GET(request: NextRequest) {
   try {
     // Get user from session cookie
-    const sessionId = request.cookies.get('sessionId')?.value;
-    if (!sessionId) {
+    const sessionToken = request.cookies.get('sessionToken')?.value;
+    if (!sessionToken) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    const session = await getSession(sessionId);
+    const session = await getSession(sessionToken);
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Invalid session' },
@@ -46,15 +46,15 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Get user from session cookie
-    const sessionId = request.cookies.get('sessionId')?.value;
-    if (!sessionId) {
+    const sessionToken = request.cookies.get('sessionToken')?.value;
+    if (!sessionToken) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    const session = await getSession(sessionId);
+    const session = await getSession(sessionToken);
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Invalid session' },
