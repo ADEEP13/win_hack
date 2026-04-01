@@ -35,7 +35,7 @@ export default function FarmerPortal() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !authenticated) {
-      router.push('/farmer/login')
+      router.push('/login?role=farmer')
     }
   }, [authenticated, authLoading, router])
 
@@ -182,7 +182,7 @@ export default function FarmerPortal() {
   const handleLogout = async () => {
     if (confirm('Are you sure you want to logout?')) {
       await logout()
-      router.push('/farmer/login')
+      router.push('/login?role=farmer')
     }
   }
 

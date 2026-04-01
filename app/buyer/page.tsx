@@ -27,7 +27,7 @@ export default function BuyerPortal() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !authenticated) {
-      router.push('/buyer/login')
+      router.push('/login?role=buyer')
     }
   }, [authenticated, authLoading, router])
 
@@ -156,7 +156,7 @@ export default function BuyerPortal() {
   const handleLogout = async () => {
     if (confirm('Are you sure you want to logout?')) {
       await logout()
-      router.push('/buyer/login')
+      router.push('/login?role=buyer')
     }
   }
 

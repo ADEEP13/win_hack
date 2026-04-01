@@ -8,7 +8,7 @@ export default function FarmerLogin() {
 
   useEffect(() => {
     // Redirect to unified login page
-    router.push('/login');
+    router.replace('/login?role=farmer');
   }, [router]);
 
   return (

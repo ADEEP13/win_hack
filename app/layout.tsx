@@ -18,8 +18,8 @@ export default function RootLayout({
           <nav className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="text-2xl font-bold text-agri-green">🌾 JanDhan Plus</div>
             <ul className="flex gap-6 text-sm">
-              <li><a href="/farmer" className="hover:text-agri-green font-medium">Farmer</a></li>
-              <li><a href="/buyer" className="hover:text-agri-green font-medium">Buyer</a></li>
+              <li><a href="/login?role=farmer" className="hover:text-agri-green font-medium">Farmer</a></li>
+              <li><a href="/login?role=buyer" className="hover:text-agri-green font-medium">Buyer</a></li>
               <li><a href="/consumer" className="hover:text-agri-green font-medium">Consumer</a></li>
               <li><a href="/admin" className="hover:text-agri-green font-medium">Admin</a></li>
               <li><a href="/ussd-simulation" className="hover:text-agri-green font-medium">📱 USSD</a></li>

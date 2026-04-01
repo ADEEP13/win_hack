@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/use-auth';
 import { useRouter } from 'next/navigation';
 
@@ -64,6 +64,16 @@ export default function UnifiedLoginPage() {
   const [error, setError] = useState('');
 
   const selectedRoleInfo = roles.find((r) => r.id === selectedRole);
+
+  useEffect(() => {
+    const roleParam = new URLSearchParams(window.location.search).get('role');
+    if (roleParam === 'farmer' || roleParam === 'buyer' || roleParam === 'consumer' || roleParam === 'admin') {
+      setSelectedRole(roleParam);
+      setMode('phone');
+      setError('');
+      setMessage('');
+    }
+  }, []);
 
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
