@@ -1,265 +1,382 @@
 'use client'
 
-import { useState } from 'react'
-
-const mockCrops = [
-  {
-    id: 1,
-    cropName: 'Rice (Basmati)',
-    quality: 'A',
-    quantity: 500,
-    pricePerKg: 37,
-    mandiPrice: 36.4,
-    farmerName: 'Ramesh Kumar',
-    location: 'Tumkur, Karnataka',
-    aiConfidence: 94,
-    image: '🌾',
-    exploitationScore: 'Fair ✅',
-  },
-  {
-    id: 2,
-    cropName: 'Tomato',
-    quality: 'B',
-    quantity: 300,
-    pricePerKg: 28,
-    mandiPrice: 35,
-    farmerName: 'Priya Sharma',
-    location: 'Hosur, Tamil Nadu',
-    aiConfidence: 87,
-    image: '🍅',
-    exploitationScore: 'Good ✅',
-  },
-  {
-    id: 3,
-    cropName: 'Onion',
-    quality: 'A',
-    quantity: 800,
-    pricePerKg: 26,
-    mandiPrice: 28,
-    farmerName: 'Hari Patel',
-    location: 'Bengaluru Rural, Karnataka',
-    aiConfidence: 92,
-    image: '🧅',
-    exploitationScore: 'Fair ✅',
-  },
-]
+import { useState, useEffect } from 'react'
 
 export default function BuyerPortal() {
+  const [crops, setCrops] = useState<any[]>([])
   const [offers, setOffers] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('browse') // 'browse', 'myOffers'
+  
+  const [buyerForm, setBuyerForm] = useState({
+    name: '',
+    phone: '',
+    bankAccount: '',
+    message: '',
+  })
+
   const [selectedCrop, setSelectedCrop] = useState<any>(null)
   const [offerPrice, setOfferPrice] = useState('')
-  const [bankAccount, setBankAccount] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const handleMakeOffer = async (crop: any) => {
-    setLoading(true)
+  useEffect(() => {
+    fetchAvailableCrops()
+  }, [])
+
+  const fetchAvailableCrops = async () => {
     try {
-      const minAllowedPrice = crop.mandiPrice * 0.85
-
-      if (parseFloat(offerPrice) < minAllowedPrice) {
-        alert(
-          `❌ Offer too low!\nMinimum allowed: ₹${minAllowedPrice.toFixed(2)}/kg (85% of mandi rate)\nYour offer: ₹${offerPrice}/kg`
-        )
-        setLoading(false)
-        return
+      const res = await fetch('/api/marketplace/crops')
+      const data = await res.json()
+      if (data.success) {
+        setCrops(data.crops)
       }
-
-      const totalAmount = parseInt(crop.quantity) * parseFloat(offerPrice)
-
-      const newOffer = {
-        id: offers.length + 1,
-        cropId: crop.id,
-        cropName: crop.cropName,
-        farmerName: crop.farmerName,
-        offerPrice: parseFloat(offerPrice),
-        totalAmount,
-        bankAccount,
-        timestamp: new Date().toISOString(),
-        status: 'pending',
-        blockchainHash: '0x' + Math.random().toString(16).substr(2, 40),
-        fraudScore: Math.random() * 40, // Low fraud score for fair offers
-      }
-
-      setOffers([...offers, newOffer])
-      alert(`✅ Offer submitted!\nBlockchain Hash: ${newOffer.blockchainHash}`)
-      setSelectedCrop(null)
-      setOfferPrice('')
-      setBankAccount('')
     } catch (error) {
-      alert('❌ Error submitting offer')
+      console.error('Failed to fetch crops:', error)
+    }
+  }
+
+  const handleMakeOffer = async (e: any) => {
+    e.preventDefault()
+    
+    if (!buyerForm.name || !buyerForm.phone || !offerPrice) {
+      alert('❌ Please fill all required fields')
+      return
+    }
+
+    if (!selectedCrop) {
+      alert('❌ Please select a crop')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/marketplace/offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cropId: selectedCrop.id,
+          buyerName: buyerForm.name,
+          buyerPhone: buyerForm.phone,
+          bankAccount: buyerForm.bankAccount,
+          offerPrice: parseFloat(offerPrice),
+          quantity: selectedCrop.quantity,
+          message: buyerForm.message,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setOffers([...offers, data.offer])
+        alert(`✅ Offer submitted to farmer!\nBlockchain Hash: ${data.offer.blockchainHash}`)
+        setSelectedCrop(null)
+        setOfferPrice('')
+        setBuyerForm(prev => ({ ...prev, message: '' }))
+        setActiveTab('myOffers')
+      } else {
+        alert(`❌ ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('❌ Failed to submit offer')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleRogueBuyerOffer = () => {
-    const crop = mockCrops[0]
-    const minAllowedPrice = crop.mandiPrice * 0.85
-    const roguePrice = crop.mandiPrice * 0.60 // 40% below market - scam attempt
-
-    alert(
-      `🚨 FRAUD DETECTED!\n\nAttempted offer: ₹${roguePrice.toFixed(2)}/kg\nFair market rate: ₹${crop.mandiPrice.toFixed(2)}/kg\nMinimum allowed: ₹${minAllowedPrice.toFixed(2)}/kg\n\n❌ OFFER BLOCKED by smart contract`
-    )
-  }
-
   return (
-    <div className="max-w-7xl mx-auto py-8">
-      <h1 className="text-4xl font-bold text-agri-green mb-8">🏪 Buyer Marketplace</h1>
+    <div className="min-h-screen bg-slate-50 py-8">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-4xl font-bold text-agri-green mb-8">🏪 Buyer Marketplace</h1>
 
-      {/* Demo Buttons */}
-      <div className="mb-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-sm text-yellow-800 mb-3">
-          <strong>Demo:</strong> Try making a legit offer below, or click "Test Fraud Block" to see fraud detection.
-        </p>
-        <button
-          onClick={handleRogueBuyerOffer}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition"
-        >
-          🚨 Test Fraud Block (60% below market)
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Marketplace */}
-        <div className="lg:col-span-2">
-          <h2 className="text-2xl font-bold mb-6 text-agri-green">Available Crops</h2>
-          <div className="space-y-6">
-            {mockCrops.map((crop) => (
-              <div key={crop.id} className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div className="text-4xl mb-2">{crop.image}</div>
-                    <h3 className="text-2xl font-bold text-agri-green">{crop.cropName}</h3>
-                    <p className="text-slate-600">Grade {crop.quality}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-agri-gold">₹{crop.pricePerKg}</div>
-                    <p className="text-sm text-slate-600">per kg</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 text-sm mb-4">
-                  <div>
-                    <p className="text-slate-600">Farmer</p>
-                    <p className="font-medium">{crop.farmerName}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-600">Quantity</p>
-                    <p className="font-medium">{crop.quantity} kg</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-600">Location</p>
-                    <p className="font-medium">{crop.location}</p>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 rounded p-3 mb-4 text-sm">
-                  <p className="text-slate-600 mb-2">
-                    <strong>Fair Trade Check:</strong> {crop.exploitationScore}
-                  </p>
-                  <div className="flex justify-between text-xs text-slate-600">
-                    <span>Mandi rate: ₹{crop.mandiPrice}/kg</span>
-                    <span>AI Quality: {crop.aiConfidence}% confidence</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setSelectedCrop(crop)}
-                  className="w-full bg-agri-green text-white py-2 rounded-lg font-medium hover:opacity-90 transition"
-                >
-                  💰 Make Offer
-                </button>
-              </div>
-            ))}
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-4 mb-8 border-b">
+          <button
+            onClick={() => setActiveTab('browse')}
+            className={`px-6 py-3 font-bold transition ${
+              activeTab === 'browse'
+                ? 'text-agri-green border-b-2 border-agri-green'
+                : 'text-slate-600 hover:text-agri-green'
+            }`}
+          >
+            🌾 Browse Crops ({crops.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('myOffers')}
+            className={`px-6 py-3 font-bold transition ${
+              activeTab === 'myOffers'
+                ? 'text-agri-green border-b-2 border-agri-green'
+                : 'text-slate-600 hover:text-agri-green'
+            }`}
+          >
+            💰 My Offers ({offers.length})
+          </button>
         </div>
 
-        {/* Offer Form / My Offers */}
-        <div>
-          {selectedCrop ? (
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
-              <h3 className="text-xl font-bold text-agri-green mb-4">Make Offer</h3>
-              <p className="text-sm text-slate-600 mb-4">{selectedCrop.cropName}</p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Your Bank Account / UPI</label>
-                  <input
-                    type="text"
-                    value={bankAccount}
-                    onChange={(e) => setBankAccount(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-agri-green"
-                    placeholder="buyer@icici"
-                  />
+        {/* TAB: Browse Crops */}
+        {activeTab === 'browse' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Crops Grid */}
+            <div className="lg:col-span-2">
+              {crops.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <p className="text-slate-600">Fetching available crops...</p>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Offer Price per Kg (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={offerPrice}
-                    onChange={(e) => setOfferPrice(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-agri-green"
-                    placeholder={selectedCrop.pricePerKg.toString()}
-                    step="0.5"
-                  />
-                  <p className="text-xs text-slate-600 mt-1">
-                    Min: ₹{(selectedCrop.mandiPrice * 0.85).toFixed(2)} (85% of mandi rate)
-                  </p>
-                </div>
-
-                {offerPrice && (
-                  <div className="bg-slate-100 rounded p-3 text-sm">
-                    <p className="text-slate-600 mb-2">Total Amount:</p>
-                    <p className="text-2xl font-bold text-agri-green">
-                      ₹{(parseInt(selectedCrop.quantity) * parseFloat(offerPrice)).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => handleMakeOffer(selectedCrop)}
-                  disabled={loading || !offerPrice || !bankAccount}
-                  className="w-full bg-agri-green text-white py-2 rounded-lg font-bold hover:opacity-90 transition disabled:opacity-50"
-                >
-                  {loading ? '⏳ Submitting...' : '✅ Submit Offer'}
-                </button>
-
-                <button
-                  onClick={() => setSelectedCrop(null)}
-                  className="w-full bg-slate-200 text-slate-800 py-2 rounded-lg font-medium hover:bg-slate-300 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
-              <h3 className="text-xl font-bold text-agri-green mb-4">My Offers</h3>
-
-              {offers.length === 0 ? (
-                <p className="text-sm text-slate-600">No offers yet. Select a crop to make an offer.</p>
               ) : (
-                <div className="space-y-4">
-                  {offers.map((offer) => (
-                    <div key={offer.id} className="border rounded-lg p-4 text-sm">
-                      <p className="font-bold text-agri-green mb-2">{offer.cropName}</p>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-slate-600">₹{offer.offerPrice}/kg</span>
-                        <span className={`text-xs font-bold ${offer.status === 'pending' ? 'text-yellow-600' : 'text-green-600'}`}>
-                          {offer.status.toUpperCase()}
-                        </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {crops.map((crop) => (
+                    <div
+                      key={crop.id}
+                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer"
+                      onClick={() => setSelectedCrop(crop)}
+                    >
+                      <div className="bg-agri-green/10 p-4">
+                        <h3 className="text-lg font-bold text-agri-green">{crop.cropName}</h3>
+                        <p className="text-sm text-slate-600">Grade {crop.quality} • {crop.quantity} kg</p>
                       </div>
-                      <p className="text-xs text-slate-500 font-mono">{offer.blockchainHash}</p>
+
+                      <div className="p-4 space-y-3">
+                        <div>
+                          <p className="text-slate-600 text-sm">Farmer</p>
+                          <p className="font-bold">{crop.farmerName}</p>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-slate-600 text-sm">Asking Price</p>
+                            <p className="text-2xl font-bold text-agri-green">₹{crop.pricePerKg}/kg</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-600 text-sm">Total Value</p>
+                            <p className="font-bold">₹{(crop.quantity * crop.pricePerKg).toLocaleString()}</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-blue-50 p-2 rounded text-xs">
+                          <p className="text-slate-700">Listed on blockchain</p>
+                          <p className="font-mono text-slate-600">{crop.blockchainHash.substring(0, 25)}...</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 p-4 border-t">
+                        <button
+                          className="w-full bg-agri-green text-white py-2 rounded-lg font-bold hover:opacity-90 transition"
+                        >
+                          💰 Make Offer
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          )}
-        </div>
+
+            {/* Offer Form Sidebar */}
+            <div>
+              {selectedCrop ? (
+                <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
+                  <h3 className="text-lg font-bold text-agri-green mb-4">Make Offer</h3>
+                  <p className="text-sm text-slate-600 mb-6 pb-4 border-b">
+                    {selectedCrop.cropName} from {selectedCrop.farmerName}
+                  </p>
+
+                  <form onSubmit={handleMakeOffer} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Your Name *</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={buyerForm.name}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-agri-green"
+                        placeholder="Your name"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Phone Number *</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={buyerForm.phone}
+                        onChange={handleInputChange}
+                        maxLength="10"
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-agri-green"
+                        placeholder="9876543210"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Bank Account / UPI *</label>
+                      <input
+                        type="text"
+                        name="bankAccount"
+                        value={buyerForm.bankAccount}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-agri-green"
+                        placeholder="buyer@okaxis"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Offer Price per Kg (₹) *</label>
+                      <input
+                        type="number"
+                        value={offerPrice}
+                        onChange={(e) => setOfferPrice(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-agri-green"
+                        placeholder={selectedCrop.pricePerKg.toString()}
+                        step="0.5"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Message (Optional)</label>
+                      <textarea
+                        name="message"
+                        value={buyerForm.message}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-agri-green text-sm"
+                        placeholder="Any message for the farmer..."
+                        rows={3}
+                      />
+                    </div>
+
+                    {offerPrice && (
+                      <div className="bg-agri-green/10 rounded p-3">
+                        <p className="text-slate-600 text-xs mb-1">Total Offer Amount</p>
+                        <p className="text-2xl font-bold text-agri-green">
+                          ₹{(selectedCrop.quantity * parseFloat(offerPrice)).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-slate-600 mt-2">
+                          (₹{parseFloat(offerPrice)}/kg × {selectedCrop.quantity} kg)
+                        </p>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading || !offerPrice}
+                      className="w-full bg-agri-green text-white py-2 rounded-lg font-bold hover:opacity-90 transition disabled:opacity-50"
+                    >
+                      {loading ? '⏳ Submitting...' : '✅ Submit Offer'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCrop(null)
+                        setOfferPrice('')
+                        setBuyerForm({ name: '', phone: '', bankAccount: '', message: '' })
+                      }}
+                      className="w-full bg-slate-200 text-slate-800 py-2 rounded-lg font-medium hover:bg-slate-300 transition"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
+                  <h3 className="text-lg font-bold text-agri-green mb-4">💡 How It Works</h3>
+                  <div className="space-y-3 text-sm text-slate-700">
+                    <p>1. Browse all listed crops from farmers</p>
+                    <p>2. Click on a crop to make an offer</p>
+                    <p>3. Enter your details and offer price</p>
+                    <p>4. Farmer will accept or reject your offer</p>
+                    <p>5. All transactions are recorded on blockchain</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: My Offers */}
+        {activeTab === 'myOffers' && (
+          <div>
+            {offers.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <p className="text-slate-600 mb-4">No offers yet. Browse crops and make an offer!</p>
+                <button
+                  onClick={() => setActiveTab('browse')}
+                  className="bg-agri-green text-white px-6 py-2 rounded-lg font-bold hover:opacity-90"
+                >
+                  Browse Crops
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {offers
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map((offer) => (
+                    <div
+                      key={offer.id}
+                      className={`bg-white rounded-lg shadow-md p-6 border-l-4 ${
+                        offer.status === 'pending'
+                          ? 'border-yellow-500'
+                          : offer.status === 'accepted'
+                          ? 'border-green-500'
+                          : 'border-red-500'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-bold">{offer.cropName}</h3>
+                          <p className="text-sm text-slate-600">💼 Your Offer</p>
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                            offer.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : offer.status === 'accepted'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {offer.status === 'pending'
+                            ? '⏳ Waiting for response'
+                            : offer.status === 'accepted'
+                            ? '✅ Accepted'
+                            : '❌ Rejected'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <p className="text-slate-600 text-sm">Your Offer</p>
+                          <p className="font-bold text-lg">₹{offer.offerPrice}/kg</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-600 text-sm">Quantity</p>
+                          <p className="font-bold text-lg">{offer.quantity} kg</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-600 text-sm">Total Amount</p>
+                          <p className="font-bold text-lg">₹{(offer.quantity * offer.offerPrice).toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      {offer.message && (
+                        <div className="bg-blue-50 p-3 rounded mb-4 text-sm">
+                          <p className="text-slate-700">Your message: {offer.message}</p>
+                        </div>
+                      )}
+
+                      <div className="text-xs text-slate-600 break-all pt-4 border-t">
+                        <p className="mb-1">Blockchain Hash: {offer.blockchainHash.substring(0, 40)}...</p>
+                        <p className="text-xs text-slate-500">
+                          Submitted: {new Date(offer.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
