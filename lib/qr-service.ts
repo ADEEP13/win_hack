@@ -41,7 +41,7 @@ export const qrService = {
   /**
    * Create a QR code payload and encode it
    */
-  async generateQRCode(offerId: string, payload: Omit<QRPayload, 'signature'>): Promise<QRCodeRecord> {
+  async generateQRCode(offerId: string, payload: Omit<QRPayload, 'signature'>, baseUrl?: string): Promise<QRCodeRecord> {
     const signature = this.generateSignature(payload);
     
     const fullPayload: QRPayload = {
@@ -52,8 +52,8 @@ export const qrService = {
     // Encode as a compact URL-safe string
     const qrData = Buffer.from(JSON.stringify(fullPayload)).toString('base64');
     
-    // Generate QR verification URL
-    const qrUrl = this.generateQRUrl(`qr_${Date.now()}_${Math.random().toString(36).substring(7)}`);
+    // Generate QR verification URL with provided baseUrl
+    const qrUrl = this.generateQRUrl(`qr_${Date.now()}_${Math.random().toString(36).substring(7)}`, baseUrl);
     
     // Generate actual QR image
     let qrImage = '';
@@ -131,7 +131,9 @@ export const qrService = {
   /**
    * Generate a scannable URL for the QR code
    */
-  generateQRUrl(qrId: string, baseUrl: string = 'https://jandhan-plus.com'): string {
-    return `${baseUrl}/verify-qr?id=${qrId}`;
+  generateQRUrl(qrId: string, baseUrl?: string): string {
+    // Use provided baseUrl, environment variable, or default to localhost
+    const url = baseUrl || process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://100.108.95.3:3001';
+    return `${url}/verify-qr?id=${qrId}`;
   },
 };

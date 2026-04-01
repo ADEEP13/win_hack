@@ -123,6 +123,13 @@ export async function PUT(request: NextRequest) {
       
       if (crop) {
         try {
+          // Extract base URL from request origin or use environment variable
+          const origin = request.headers.get('origin') || 
+                        request.headers.get('x-forwarded-proto') + '://' + request.headers.get('host') ||
+                        process.env.APP_URL || 
+                        process.env.NEXT_PUBLIC_APP_URL ||
+                        'http://100.108.95.3:3001';
+          
           qrCode = await qrService.generateQRCode(offerId, {
             transactionHash: offer.blockchainHash,
             farmerId: crop.farmerId || "UNKNOWN",
@@ -133,7 +140,7 @@ export async function PUT(request: NextRequest) {
             harvestDate: crop.harvestedDate || new Date().toISOString(),
             pricePerKg: offer.offerPrice,
             timestamp: new Date().toISOString(),
-          });
+          }, origin);
 
           // Store QR code ID and image with offer
           (offer as any).qrCodeId = qrCode.id;
