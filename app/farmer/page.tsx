@@ -204,7 +204,7 @@ export default function FarmerPortal() {
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
-                        maxLength="10"
+                        maxLength={10}
                         className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-agri-green"
                         placeholder="9876543210"
                         required
