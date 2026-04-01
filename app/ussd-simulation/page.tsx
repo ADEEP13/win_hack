@@ -28,7 +28,7 @@ interface SocketErrorPayload {
 
 interface Phone1State {
   phoneNumber: string
-  menuState: 'main' | 'sendMoney' | 'enterRecipient' | 'enterAmount' | 'enterPin' | 'waiting'
+  menuState: 'main' | 'sendMoney' | 'enterRecipient' | 'enterAmount' | 'enterPin' | 'waiting' | 'viewOffers' | 'listCrop' | 'marketRates'
   display: string
   recipientPhone: string
   amount: string
@@ -47,6 +47,30 @@ const MOCK_USERS = {
   '9876543210': 'Raj Kumar',
   '9988776655': 'Priya Singh',
   '8765432109': 'Amit Patel',
+}
+
+interface Offer {
+  id: string
+  cropName: string
+  farmer: string
+  pricePerKg: number
+  quantity: number
+  status: string
+}
+
+interface Crop {
+  id: string
+  name: string
+  season: string
+  harvestTime: string
+  priceRange: string
+}
+
+interface MarketRate {
+  cropName: string
+  pricePerKg: number
+  change: string
+  trend: string
 }
 
 export default function USSDSimulation() {
@@ -69,6 +93,12 @@ export default function USSDSimulation() {
 
   const [socket, setSocket] = useState<Socket | null>(null)
   const [connectionStatus, setConnectionStatus] = useState('connecting...')
+  
+  // Menu data state
+  const [offers, setOffers] = useState<Offer[]>([])
+  const [crops, setCrops] = useState<Crop[]>([])
+  const [marketRates, setMarketRates] = useState<MarketRate[]>([])
+  const [menuPage, setMenuPage] = useState(0) // For pagination in long lists
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -140,6 +170,83 @@ export default function USSDSimulation() {
     }
   }, [])
 
+  // Fetch menu data from APIs
+  useEffect(() => {
+    const fetchMenuData = async () => {
+      try {
+        const [offersRes, cropsRes, ratesRes] = await Promise.all([
+          fetch('/api/ussd/offers'),
+          fetch('/api/ussd/crops'),
+          fetch('/api/ussd/market-rates'),
+        ])
+
+        if (offersRes.ok) {
+          const data = await offersRes.json()
+          setOffers(data.offers)
+        }
+
+        if (cropsRes.ok) {
+          const data = await cropsRes.json()
+          setCrops(data.crops)
+        }
+
+        if (ratesRes.ok) {
+          const data = await ratesRes.json()
+          setMarketRates(data.rates)
+        }
+      } catch (error) {
+        console.error('Failed to fetch menu data:', error)
+      }
+    }
+
+    fetchMenuData()
+  }, [])
+
+  // Format offers for USSD display (max 2 items per screen)
+  const formatOffers = (page: number = 0) => {
+    const itemsPerPage = 2
+    const start = page * itemsPerPage
+    const end = start + itemsPerPage
+    const pageOffers = offers.slice(start, end)
+    
+    let display = 'Active Offers:\n\n'
+    pageOffers.forEach((offer, idx) => {
+      display += `${start + idx + 1}. ${offer.cropName}\n   ₹${offer.pricePerKg}/kg\n`
+    })
+    display += `\n0. Back`
+    return display
+  }
+
+  // Format crops for USSD display
+  const formatCrops = (page: number = 0) => {
+    const itemsPerPage = 1
+    const start = page * itemsPerPage
+    const end = start + itemsPerPage
+    const pageCrops = crops.slice(start, end)
+    
+    let display = ''
+    pageCrops.forEach((crop) => {
+      display += `${crop.name}\nSeason: ${crop.season}\nHarvest: ${crop.harvestTime}\nPrice: ${crop.priceRange}\n`
+    })
+    display += `\n1. Next | 2. Prev\n0. Back`
+    return display
+  }
+
+  // Format market rates for USSD display
+  const formatMarketRates = (page: number = 0) => {
+    const itemsPerPage = 3
+    const start = page * itemsPerPage
+    const end = start + itemsPerPage
+    const pageRates = marketRates.slice(start, end)
+    
+    let display = `Market Rates (${start + 1}-${Math.min(end, marketRates.length)}):\n\n`
+    pageRates.forEach((rate) => {
+      display += `${rate.cropName}: ₹${rate.pricePerKg}\n${rate.trend} ${rate.change}\n`
+    })
+    display += `\n1. Next | 0. Back`
+    return display
+  }
+
   // Handle Phone 1 Keypad Input
   const handlePhone1Keypad = (key: string) => {
     let newState = { ...phone1 }
@@ -150,6 +257,7 @@ export default function USSDSimulation() {
       newState.display = 'JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit'
       newState.menuState = 'main'
       setPhone1(newState)
+      setMenuPage(0)
       return
     }
 
@@ -158,32 +266,42 @@ export default function USSDSimulation() {
       if (newState.menuState === 'main') {
         if (newState.inputBuffer === '1') {
           newState.menuState = 'enterRecipient'
-          newState.display = 'Enter receiver phone\nnumber (10 digits):\n\n' + newState.inputBuffer
+          newState.display = `Enter receiver phone\nnumber (10 digits):\n\n${newState.inputBuffer ? newState.inputBuffer + (newState.inputBuffer.length < 10 ? '_' : '') : '_________'}`
           newState.inputBuffer = ''
+        } else if (newState.inputBuffer === '2') {
+          newState.menuState = 'viewOffers'
+          newState.display = formatOffers(0)
+          newState.inputBuffer = ''
+          setMenuPage(0)
+        } else if (newState.inputBuffer === '3') {
+          newState.menuState = 'listCrop'
+          newState.display = formatCrops(0)
+          newState.inputBuffer = ''
+          setMenuPage(0)
         } else if (newState.inputBuffer === '4') {
-          newState.display = 'Today\'s Market Rates:\n\n1. Rice: ₹1820/kg\n2. Wheat: ₹2050/kg\n3. Tomato: ₹35/kg\n\n0. Back'
-          newState.menuState = 'main'
+          newState.menuState = 'marketRates'
+          newState.display = formatMarketRates(0)
           newState.inputBuffer = ''
+          setMenuPage(0)
         } else if (newState.inputBuffer === '0') {
-          newState.display = 'JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit'
-          newState.menuState = 'main'
+          newState.display = 'Thank you!\nGoodbye 🌾'
           newState.inputBuffer = ''
         }
       } else if (newState.menuState === 'enterRecipient') {
         if (newState.inputBuffer.length === 10) {
           newState.recipientPhone = newState.inputBuffer
           newState.menuState = 'enterAmount'
-          newState.display = `Sending to:\n${MOCK_USERS[newState.inputBuffer as keyof typeof MOCK_USERS] || 'Unknown'}\n\nEnter amount (₹):\n\n${newState.inputBuffer}`
+          newState.display = `Sending to:\n${MOCK_USERS[newState.inputBuffer as keyof typeof MOCK_USERS] || 'Unknown'}\n\nEnter amount (₹):\n${newState.inputBuffer ? newState.inputBuffer + '_' : '_'}`
           newState.inputBuffer = ''
         } else {
-          newState.display = '❌ Invalid phone number\nMust be 10 digits\n\nPress 0 to exit'
+          newState.display = `❌ Invalid phone\nMust be 10 digits\nEntered: ${newState.inputBuffer.length}/10\n\nPress 0 to exit`
           newState.inputBuffer = ''
         }
       } else if (newState.menuState === 'enterAmount') {
         if (newState.inputBuffer && !isNaN(Number(newState.inputBuffer))) {
           newState.amount = newState.inputBuffer
           newState.menuState = 'enterPin'
-          newState.display = `Amount: ₹${newState.amount}\nRecipient: ${newState.recipientPhone}\n\nEnter PIN (4 digits):`
+          newState.display = `Amount: ₹${newState.amount}\nRecipient:\n${newState.recipientPhone}\n\nEnter PIN:`
           newState.inputBuffer = ''
         } else {
           newState.display = '❌ Invalid amount\n\nPress 0 to exit'
@@ -192,7 +310,7 @@ export default function USSDSimulation() {
       } else if (newState.menuState === 'enterPin') {
         if (newState.inputBuffer.length === 4) {
           newState.pin = newState.inputBuffer
-          newState.display = `📤 Sending Request...\n\nTo: ${newState.recipientPhone}\nAmount: ₹${newState.amount}`
+          newState.display = `📤 Sending...\n\nTo: ${newState.recipientPhone}\nAmount: ₹${newState.amount}`
           newState.inputBuffer = ''
 
           // Send request to backend via Socket.IO
@@ -210,19 +328,64 @@ export default function USSDSimulation() {
           newState.pin = ''
           newState.recipientPhone = ''
         } else {
-          newState.display = '❌ Invalid PIN\n4 digits required\n\nPress 0 to exit'
+          newState.display = `❌ Invalid PIN\n4 digits required\nEntered: ${newState.inputBuffer.length}/4\n\nPress 0 to exit`
           newState.inputBuffer = ''
+        }
+      } else if (newState.menuState === 'viewOffers') {
+        if (newState.inputBuffer === '0') {
+          newState.menuState = 'main'
+          newState.display = 'JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit'
+          newState.inputBuffer = ''
+          setMenuPage(0)
+        }
+      } else if (newState.menuState === 'listCrop') {
+        if (newState.inputBuffer === '1') {
+          const nextPage = menuPage + 1
+          if (nextPage < Math.ceil(crops.length / 1)) {
+            setMenuPage(nextPage)
+            newState.display = formatCrops(nextPage)
+          }
+          newState.inputBuffer = ''
+        } else if (newState.inputBuffer === '2') {
+          const prevPage = menuPage - 1
+          if (prevPage >= 0) {
+            setMenuPage(prevPage)
+            newState.display = formatCrops(prevPage)
+          }
+          newState.inputBuffer = ''
+        } else if (newState.inputBuffer === '0') {
+          newState.menuState = 'main'
+          newState.display = 'JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit'
+          newState.inputBuffer = ''
+          setMenuPage(0)
+        }
+      } else if (newState.menuState === 'marketRates') {
+        if (newState.inputBuffer === '1') {
+          const nextPage = menuPage + 1
+          if (nextPage < Math.ceil(marketRates.length / 3)) {
+            setMenuPage(nextPage)
+            newState.display = formatMarketRates(nextPage)
+          }
+          newState.inputBuffer = ''
+        } else if (newState.inputBuffer === '0') {
+          newState.menuState = 'main'
+          newState.display = 'JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit'
+          newState.inputBuffer = ''
+          setMenuPage(0)
         }
       }
       setPhone1(newState)
       return
     }
 
-    // Regular number input
+    // Regular number input - always update display with input buffer shown inside the screen
     if (!isNaN(Number(key))) {
       newState.inputBuffer += key
 
-      if (newState.menuState === 'enterRecipient') {
+      if (newState.menuState === 'main') {
+        // Show input in main menu
+        newState.display = `JanDhan Plus 🌾\n\n1. Send Money\n2. View Offers\n3. List Crop\n4. Market Rates\n0. Exit\n\nInput: ${newState.inputBuffer}`
+      } else if (newState.menuState === 'enterRecipient') {
         newState.display = `Enter receiver phone\nnumber (10 digits):\n\n${newState.inputBuffer}${newState.inputBuffer.length < 10 ? '_' : ''}`
       } else if (newState.menuState === 'enterAmount') {
         newState.display = `Enter amount (₹):\n\n${newState.inputBuffer}_`
@@ -323,11 +486,6 @@ export default function USSDSimulation() {
                 <div className="text-green-400 font-mono text-sm whitespace-pre-wrap break-words">
                   {phone1.display}
                 </div>
-              </div>
-
-              {/* Input Display */}
-              <div className="bg-gray-800 px-4 py-2 text-green-400 font-mono text-sm text-center">
-                {phone1.inputBuffer || '_'}
               </div>
 
               {/* Numeric Keypad */}
@@ -447,12 +605,12 @@ export default function USSDSimulation() {
           <div className="bg-gray-800 rounded-lg p-6">
             <h3 className="text-lg font-bold mb-3">📋 How to Use</h3>
             <ol className="text-sm space-y-2 text-slate-300">
-              <li>1. <strong>Sender</strong> presses 1 to "Send Money"</li>
-              <li>2. Enter recipient phone (10 digits) + #</li>
-              <li>3. Enter amount + #</li>
-              <li>4. Enter PIN (1234 for Raj Kumar) + #</li>
-              <li>5. <strong>Receiver</strong> gets notification</li>
-              <li>6. Press 1 to Accept or 2 to Reject</li>
+              <li><strong>Send Money:</strong> Press 1 → Enter recipient → Amount → PIN (1234)</li>
+              <li><strong>View Offers:</strong> Press 2 → See active crop offers</li>
+              <li><strong>List Crops:</strong> Press 3 → Browse crop info & prices</li>
+              <li><strong>Market Rates:</strong> Press 4 → Check daily market rates</li>
+              <li>Press # to submit, * to clear</li>
+              <li><strong>Receiver</strong> gets notification → Press 1 Accept or 2 Reject</li>
             </ol>
           </div>
 
