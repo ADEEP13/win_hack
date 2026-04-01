@@ -1,13 +1,19 @@
-import { LoginComponent } from '@/components/login-component';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function AdminLogin() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to unified login page
+    router.push('/login');
+  }, [router]);
+
   return (
-    <LoginComponent
-      userType="admin"
-      redirectPath="/admin"
-      title="🔐 Admin Login"
-      emoji="🔐"
-      description="Manage marketplace and verify transactions"
-    />
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-gray-600">Redirecting to unified login...</p>
+    </div>
   );
 }

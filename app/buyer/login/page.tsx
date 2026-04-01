@@ -1,13 +1,19 @@
-import { LoginComponent } from '@/components/login-component';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function BuyerLogin() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to unified login page
+    router.push('/login');
+  }, [router]);
+
   return (
-    <LoginComponent
-      userType="buyer"
-      redirectPath="/buyer"
-      title="🏪 Buyer Login"
-      emoji="🏪"
-      description="Browse crops and make offers to farmers"
-    />
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-gray-600">Redirecting to unified login...</p>
+    </div>
   );
 }
