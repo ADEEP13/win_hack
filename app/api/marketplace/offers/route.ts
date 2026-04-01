@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketplaceDB } from "@/lib/marketplace-db";
+import { qrService } from "@/lib/qr-service";
 
 // POST - Buyer makes an offer on a crop
 export async function POST(request: NextRequest) {
@@ -115,12 +116,39 @@ export async function PUT(request: NextRequest) {
     offer.status = status;
     offer.respondedAt = new Date().toISOString();
 
+    // Generate QR code when offer is accepted
+    let qrCode = null;
+    if (status === "accepted") {
+      const crop = marketplaceDB.crops.find((c) => c.id === offer.cropId);
+      
+      if (crop) {
+        qrCode = qrService.generateQRCode(offerId, {
+          transactionHash: offer.blockchainHash,
+          farmerId: crop.farmerId || "UNKNOWN",
+          farmerName: crop.farmerName,
+          farmerLocation: crop.farmerLocation || "Unknown",
+          cropType: crop.cropName,
+          quantity: crop.quantity.toString(),
+          harvestDate: crop.harvestedDate || new Date().toISOString(),
+          pricePerKg: offer.offerPrice,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Store QR code ID with offer
+        (offer as any).qrCodeId = qrCode.id;
+        (offer as any).qrCodeUrl = qrService.generateQRUrl(qrCode.id);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       offer,
+      qrCode,
       message: `Offer ${status} successfully`,
+      verificationUrl: qrCode ? qrService.generateQRUrl(qrCode.id) : null,
     });
   } catch (error) {
+    console.error("Error updating offer:", error);
     return NextResponse.json(
       { error: "Failed to update offer" },
       { status: 500 }
