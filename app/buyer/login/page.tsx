@@ -8,7 +8,7 @@ export default function BuyerLogin() {
 
   useEffect(() => {
     // Redirect to unified login page
-    router.replace('/login?role=buyer');
+    router.replace('/login');
   }, [router]);
 
   return (

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     if (!sessionToken) {
       return NextResponse.json(
         { success: false, authenticated: false, error: 'No session found' },
-        { status: 401 }
+        { status: 200 }
       );
     }
 
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json(
         { success: false, authenticated: false, error: 'Invalid session' },
-        { status: 401 }
+        { status: 200 }
       );
     }
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       sessionOps.delete(sessionToken);
       return NextResponse.json(
         { success: false, authenticated: false, error: 'Session expired' },
-        { status: 401 }
+        { status: 200 }
       );
     }
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { success: false, authenticated: false, error: 'User not found' },
-        { status: 401 }
+        { status: 200 }
       );
     }
 

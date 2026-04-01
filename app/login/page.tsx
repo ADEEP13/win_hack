@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/lib/use-auth';
 import { useRouter } from 'next/navigation';
 
-type UserRole = 'farmer' | 'buyer' | 'consumer' | 'admin';
+type UserRole = 'farmer' | 'buyer';
 
 interface RoleInfo {
   id: UserRole;
@@ -29,20 +29,6 @@ const roles: RoleInfo[] = [
     description: 'Browse crops and make offers',
     color: 'from-blue-500 to-blue-600',
   },
-  {
-    id: 'consumer',
-    label: 'Consumer',
-    emoji: '👥',
-    description: 'Purchase fresh crops',
-    color: 'from-orange-500 to-orange-600',
-  },
-  {
-    id: 'admin',
-    label: 'Administrator',
-    emoji: '🔐',
-    description: 'Manage marketplace',
-    color: 'from-red-500 to-red-600',
-  },
 ];
 
 export default function UnifiedLoginPage() {
@@ -64,16 +50,6 @@ export default function UnifiedLoginPage() {
   const [error, setError] = useState('');
 
   const selectedRoleInfo = roles.find((r) => r.id === selectedRole);
-
-  useEffect(() => {
-    const roleParam = new URLSearchParams(window.location.search).get('role');
-    if (roleParam === 'farmer' || roleParam === 'buyer' || roleParam === 'consumer' || roleParam === 'admin') {
-      setSelectedRole(roleParam);
-      setMode('phone');
-      setError('');
-      setMessage('');
-    }
-  }, []);
 
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
