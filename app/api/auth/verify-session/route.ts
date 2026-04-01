@@ -3,7 +3,13 @@ import { sessionOps, userOps } from '@/lib/auth-db';
 
 export async function GET(request: NextRequest) {
   try {
-    const sessionToken = request.cookies.get('sessionToken')?.value;
+    // Try to get session token from cookie first, then from header
+    let sessionToken = request.cookies.get('sessionToken')?.value;
+    
+    if (!sessionToken) {
+      // Fallback: check for token in X-Session-Token header
+      sessionToken = request.headers.get('X-Session-Token') || undefined;
+    }
 
     if (!sessionToken) {
       return NextResponse.json(

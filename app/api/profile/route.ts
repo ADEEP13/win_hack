@@ -4,8 +4,14 @@ import { getUserProfile, updateUserProfile } from '@/lib/profile-db';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get user from session cookie
-    const sessionToken = request.cookies.get('sessionToken')?.value;
+    // Get user from session cookie or header
+    let sessionToken = request.cookies.get('sessionToken')?.value;
+    
+    if (!sessionToken) {
+      // Fallback: check for token in X-Session-Token header
+      sessionToken = request.headers.get('X-Session-Token') || undefined;
+    }
+
     if (!sessionToken) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },
@@ -45,8 +51,14 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    // Get user from session cookie
-    const sessionToken = request.cookies.get('sessionToken')?.value;
+    // Get user from session cookie or header
+    let sessionToken = request.cookies.get('sessionToken')?.value;
+    
+    if (!sessionToken) {
+      // Fallback: check for token in X-Session-Token header
+      sessionToken = request.headers.get('X-Session-Token') || undefined;
+    }
+
     if (!sessionToken) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },

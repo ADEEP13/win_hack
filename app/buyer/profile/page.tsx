@@ -54,8 +54,10 @@ export default function BuyerProfilePage() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
+      const token = typeof window !== 'undefined' ? sessionStorage.getItem('sessionToken') : null;
       const res = await fetch('/api/profile', {
         credentials: 'include',
+        headers: token ? { 'X-Session-Token': token } : {},
       });
       const data = await res.json();
 
@@ -93,9 +95,13 @@ export default function BuyerProfilePage() {
     setLoading(true);
 
     try {
+      const token = typeof window !== 'undefined' ? sessionStorage.getItem('sessionToken') : null;
       const res = await fetch('/api/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'X-Session-Token': token } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify(formData),
       });

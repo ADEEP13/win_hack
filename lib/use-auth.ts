@@ -28,22 +28,37 @@ export function useAuth(): AuthContextType {
 
   const verifySession = useCallback(async () => {
     try {
+      // First, check if we have a token stored in sessionStorage
+      const storedToken = typeof window !== 'undefined' ? sessionStorage.getItem('sessionToken') : null;
+      
       const res = await fetch('/api/auth/verify-session', {
         credentials: 'include',
+        headers: storedToken ? { 'X-Session-Token': storedToken } : {},
       });
       const data = await res.json();
       
       if (data.success && data.authenticated) {
         setUser(data.user);
         setAuthenticated(true);
+        // Make sure token is in sessionStorage
+        if (storedToken) {
+          sessionStorage.setItem('sessionToken', storedToken);
+        }
       } else {
         setUser(null);
         setAuthenticated(false);
+        // Clear any stored token
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('sessionToken');
+        }
       }
     } catch (error) {
       console.error('Failed to verify session:', error);
       setUser(null);
       setAuthenticated(false);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('sessionToken');
+      }
     } finally {
       setLoading(false);
     }
@@ -91,6 +106,12 @@ export function useAuth(): AuthContextType {
         if (data.success) {
           setUser(data.user);
           setAuthenticated(true);
+          
+          // Store token in sessionStorage for fallback
+          if (data.sessionToken && typeof window !== 'undefined') {
+            sessionStorage.setItem('sessionToken', data.sessionToken);
+            console.log('✅ Session token stored:', data.sessionToken.substring(0, 20) + '...');
+          }
           return true;
         } else {
           alert(`❌ ${data.error}`);
@@ -113,6 +134,10 @@ export function useAuth(): AuthContextType {
       });
       setUser(null);
       setAuthenticated(false);
+      // Clear stored token
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('sessionToken');
+      }
     } catch (error) {
       console.error('Logout failed:', error);
     }
