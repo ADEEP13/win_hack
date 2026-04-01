@@ -7,6 +7,7 @@ export default function AdminLogin() {
       redirectPath="/admin"
       title="🔐 Admin Login"
       emoji="🔐"
+      description="Manage marketplace and verify transactions"
     />
   );
 }

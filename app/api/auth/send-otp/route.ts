@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `OTP sent to ${phone}. Valid for 10 minutes.`,
-      // For DEMO ONLY: remove in production
-      demo_otp: process.env.NODE_ENV === 'development' ? otp : undefined,
+      // For DEMO: always show OTP for testing
+      demo_otp: otp,
     });
   } catch (error) {
     console.error('Error sending OTP:', error);

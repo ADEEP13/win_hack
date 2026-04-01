@@ -11,7 +11,7 @@ export interface AuthContextType {
   user: User | null;
   loading: boolean;
   authenticated: boolean;
-  login: (phone: string, otp: string, userType: string, name?: string) => Promise<boolean>;
+  login: (phone: string, otp: string, userType: string, name?: string, email?: string, bankAccount?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   sendOTP: (phone: string, userType: string) => Promise<boolean>;
 }
@@ -75,12 +75,12 @@ export function useAuth(): AuthContextType {
   }, []);
 
   const login = useCallback(
-    async (phone: string, otp: string, userType: string, name?: string): Promise<boolean> => {
+    async (phone: string, otp: string, userType: string, name?: string, email?: string, bankAccount?: string): Promise<boolean> => {
       try {
         const res = await fetch('/api/auth/verify-otp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, otp, userType, name }),
+          body: JSON.stringify({ phone, otp, userType, name, email, bankAccount }),
         });
 
         const data = await res.json();

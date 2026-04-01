@@ -4,7 +4,7 @@ import { userOps, otpOps, sessionOps } from '@/lib/auth-db';
 
 export async function POST(request: NextRequest) {
   try {
-    const { phone, otp, userType, name } = await request.json();
+    const { phone, otp, userType, name, email, bankAccount } = await request.json();
 
     // Validate inputs
     if (!phone || !otp || !isValidOTP(otp)) {
@@ -67,12 +67,16 @@ export async function POST(request: NextRequest) {
       user = userOps.create({
         phone,
         name: name || 'User',
+        email: email || null,
+        bankAccount: bankAccount || null,
         userType,
         verified: true,
       });
     } else {
       user = userOps.update(user.id, {
         name: name || user.name,
+        email: email || user.email,
+        bankAccount: bankAccount || user.bankAccount,
         userType,
         verified: true,
       });

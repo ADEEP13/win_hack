@@ -7,6 +7,7 @@ export default function BuyerLogin() {
       redirectPath="/buyer"
       title="🏪 Buyer Login"
       emoji="🏪"
+      description="Browse crops and make offers to farmers"
     />
   );
 }

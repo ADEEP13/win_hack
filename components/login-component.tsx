@@ -9,16 +9,22 @@ interface LoginComponentProps {
   redirectPath: string;
   title: string;
   emoji: string;
+  description: string;
 }
 
-export function LoginComponent({ userType, redirectPath, title, emoji }: LoginComponentProps) {
+export function LoginComponent({ userType, redirectPath, title, emoji, description }: LoginComponentProps) {
   const router = useRouter();
   const { login, sendOTP } = useAuth();
   
-  const [step, setStep] = useState<'phone' | 'otp' | 'name'>('phone');
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [step, setStep] = useState<'phone' | 'otp' | 'details'>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
-  const [name, setName] = useState('');
+  const [signupData, setSignupData] = useState({
+    name: '',
+    email: '',
+    bankAccount: '',
+  });
   const [loading, setLoading] = useState(false);
 
   const handleSendOTP = async (e: React.FormEvent) => {
@@ -46,16 +52,25 @@ export function LoginComponent({ userType, redirectPath, title, emoji }: LoginCo
     }
 
     setLoading(true);
-    const success = await login(phone, otp, userType, name || undefined);
+    const name = mode === 'signup' ? signupData.name : undefined;
+    const email = mode === 'signup' ? signupData.email : undefined;
+    const bankAccount = mode === 'signup' ? signupData.bankAccount : undefined;
+    const success = await login(phone, otp, userType, name, email, bankAccount);
     if (success) {
       router.push(redirectPath);
     }
     setLoading(false);
   };
 
-  const handleBack = () => {
+  const handleBackToPhone = () => {
     setOtp('');
-    setName('');
+    setStep('phone');
+  };
+
+  const handleBackToMode = () => {
+    setPhone('');
+    setOtp('');
+    setSignupData({ name: '', email: '', bankAccount: '' });
     setStep('phone');
   };
 
@@ -67,8 +82,34 @@ export function LoginComponent({ userType, redirectPath, title, emoji }: LoginCo
           <div className="bg-gradient-to-r from-agri-green to-green-600 p-8 text-white text-center">
             <div className="text-5xl mb-4">{emoji}</div>
             <h1 className="text-3xl font-bold mb-2">{title}</h1>
-            <p className="opacity-90">JanDhan Plus Marketplace</p>
+            <p className="opacity-90">{description}</p>
           </div>
+
+          {/* Mode Selector */}
+          {step === 'phone' && (
+            <div className="flex gap-2 p-4 bg-slate-100">
+              <button
+                onClick={() => setMode('login')}
+                className={`flex-1 py-2 rounded-lg font-bold transition ${
+                  mode === 'login'
+                    ? 'bg-agri-green text-white'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                }`}
+              >
+                🔓 Login
+              </button>
+              <button
+                onClick={() => setMode('signup')}
+                className={`flex-1 py-2 rounded-lg font-bold transition ${
+                  mode === 'signup'
+                    ? 'bg-agri-green text-white'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                }`}
+              >
+                ✍️ Sign Up
+              </button>
+            </div>
+          )}
 
           {/* Form */}
           <div className="p-8">
@@ -90,9 +131,54 @@ export function LoginComponent({ userType, redirectPath, title, emoji }: LoginCo
                   <p className="text-xs text-slate-600 mt-1">Enter your 10-digit mobile number</p>
                 </div>
 
+                {mode === 'signup' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={signupData.name}
+                        onChange={(e) => setSignupData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Enter your full name"
+                        className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-agri-green"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">
+                        Email (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        value={signupData.email}
+                        onChange={(e) => setSignupData(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="your.email@example.com"
+                        className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-agri-green"
+                      />
+                    </div>
+
+                    {(userType === 'farmer' || userType === 'buyer') && (
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">
+                          Bank Account / UPI *
+                        </label>
+                        <input
+                          type="text"
+                          value={signupData.bankAccount}
+                          onChange={(e) => setSignupData(prev => ({ ...prev, bankAccount: e.target.value }))}
+                          placeholder="upi@bank or account number"
+                          className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-agri-green"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || (mode === 'signup' && !signupData.name)}
                   className="w-full bg-agri-green text-white py-3 rounded-lg font-bold hover:opacity-90 transition disabled:opacity-50 text-lg"
                 >
                   {loading ? '⏳ Sending OTP...' : '📱 Send OTP'}
@@ -124,33 +210,30 @@ export function LoginComponent({ userType, redirectPath, title, emoji }: LoginCo
                   <p className="text-xs text-slate-600 mt-1">Check your SMS for the code</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    Your Name (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-agri-green"
-                  />
-                </div>
+                {mode === 'signup' && (
+                  <div className="bg-slate-50 p-3 rounded-lg text-sm">
+                    <p className="font-bold text-slate-700 mb-2">Account Details:</p>
+                    <p>📱 Phone: {phone}</p>
+                    <p>👤 Name: {signupData.name}</p>
+                    {signupData.email && <p>📧 Email: {signupData.email}</p>}
+                    {signupData.bankAccount && <p>🏦 Bank: {signupData.bankAccount}</p>}
+                  </div>
+                )}
 
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full bg-agri-green text-white py-3 rounded-lg font-bold hover:opacity-90 transition disabled:opacity-50 text-lg"
                 >
-                  {loading ? '⏳ Verifying...' : '✅ Verify & Login'}
+                  {loading ? '⏳ Verifying...' : mode === 'signup' ? '✅ Create Account' : '✅ Login'}
                 </button>
 
                 <button
                   type="button"
-                  onClick={handleBack}
+                  onClick={handleBackToPhone}
                   className="w-full bg-slate-200 text-slate-700 py-2 rounded-lg font-bold hover:bg-slate-300 transition"
                 >
-                  ← Back
+                  ← Change Phone
                 </button>
               </form>
             )}

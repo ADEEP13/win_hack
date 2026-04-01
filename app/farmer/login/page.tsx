@@ -7,6 +7,7 @@ export default function FarmerLogin() {
       redirectPath="/farmer"
       title="👨‍🌾 Farmer Login"
       emoji="👨‍🌾"
+      description="List your crops and receive offers from buyers"
     />
   );
 }
