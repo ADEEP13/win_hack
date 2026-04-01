@@ -83,6 +83,11 @@ export default function BuyerPortal() {
     }
   }
 
+  const handleInputChange = (e: any) => {
+    const { name, value } = e.target
+    setBuyerForm(prev => ({ ...prev, [name]: value }))
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-7xl mx-auto">
