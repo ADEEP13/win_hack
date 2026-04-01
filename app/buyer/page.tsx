@@ -23,6 +23,13 @@ export default function BuyerPortal() {
     fetchAvailableCrops()
   }, [])
 
+  // Fetch crops when switching to "Browse Crops" tab
+  useEffect(() => {
+    if (activeTab === 'browse') {
+      fetchAvailableCrops()
+    }
+  }, [activeTab])
+
   // Fetch offers when switching to "My Offers" tab
   useEffect(() => {
     if (activeTab === 'myOffers' && buyerForm.phone) {

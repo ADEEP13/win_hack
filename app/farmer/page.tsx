@@ -35,6 +35,19 @@ export default function FarmerPortal() {
     }
   }, [formData.phone])
 
+  // Auto-fetch crops and offers when switching tabs or phone changes
+  useEffect(() => {
+    if (activeTab === 'myCrops' && formData.phone && formData.phone.length === 10) {
+      fetchFarmerCrops(formData.phone)
+    }
+  }, [activeTab, formData.phone])
+
+  useEffect(() => {
+    if (activeTab === 'offers' && formData.phone && formData.phone.length === 10) {
+      fetchFarmerOffers(formData.phone)
+    }
+  }, [activeTab, formData.phone])
+
   const fetchFarmerCrops = async (phone: string) => {
     try {
       const res = await fetch(`/api/marketplace/crops?farmerPhone=${phone}`)
