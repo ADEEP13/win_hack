@@ -1,43 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
+import { query } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
-    const { phone, name, role } = await request.json();
+    const { phone, role } = await request.json();
 
     // Validation
-    if (!phone || !name || !role) {
+    if (!phone || !role) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { success: false, error: "Missing required fields: phone, role" },
         { status: 400 }
       );
     }
 
     if (!["farmer", "buyer", "consumer", "admin"].includes(role)) {
       return NextResponse.json(
-        { error: "Invalid role" },
+        { success: false, error: "Invalid role" },
         { status: 400 }
       );
     }
 
-    // TODO: Connect to PostgreSQL and create/get user
-    // For now, return mock JWT
-    const mockUserId = Math.random().toString(36).substring(7);
-    const mockToken = Buffer.from(
-      JSON.stringify({ userId: mockUserId, phone, role })
+    if (phone.length !== 10) {
+      return NextResponse.json(
+        { success: false, error: "Invalid phone number" },
+        { status: 400 }
+      );
+    }
+
+    // Check if user exists in database
+    const result = await query(
+      "SELECT id, phone, name, role, trust_score FROM users WHERE phone = $1 AND role = $2",
+      [phone, role]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "User not found. Please sign up first before logging in.",
+          requiresSignup: true
+        },
+        { status: 404 }
+      );
+    }
+
+    const user = result.rows[0];
+
+    // Generate token
+    const token = Buffer.from(
+      JSON.stringify({ 
+        userId: user.id, 
+        phone: user.phone, 
+        name: user.name,
+        role: user.role,
+        timestamp: Date.now()
+      })
     ).toString("base64");
 
     return NextResponse.json({
       success: true,
-      userId: mockUserId,
-      phone,
-      role,
-      token: mockToken,
-      message: "Login successful"
+      userId: user.id,
+      phone: user.phone,
+      name: user.name,
+      role: user.role,
+      trustScore: user.trust_score,
+      token,
+      message: "✅ Login successful"
     });
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
-      { error: "Login failed" },
+      { success: false, error: "Login failed. Please try again." },
       { status: 500 }
     );
   }

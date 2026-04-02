@@ -12,6 +12,7 @@ export interface AuthContextType {
   loading: boolean;
   authenticated: boolean;
   login: (phone: string, otp: string, userType: string, name?: string, email?: string, bankAccount?: string) => Promise<boolean>;
+  signup: (phone: string, name: string, role: string, email?: string, bankAccount?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   sendOTP: (phone: string, userType: string) => Promise<boolean>;
 }
@@ -143,12 +144,40 @@ export function useAuth(): AuthContextType {
     }
   }, []);
 
+  const signup = useCallback(
+    async (phone: string, name: string, role: string, email?: string, bankAccount?: string): Promise<boolean> => {
+      try {
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ phone, name, role, email, bankAccount }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          alert(`✅ ${data.message}`);
+          return true;
+        } else {
+          alert(`❌ ${data.error}`);
+          return false;
+        }
+      } catch (error) {
+        console.error('Sign-up failed:', error);
+        alert('❌ Sign-up failed. Please try again.');
+        return false;
+      }
+    },
+    []
+  );
+
   return {
     user,
     loading,
     authenticated,
     login,
     logout,
+    signup,
     sendOTP,
   };
 }
