@@ -22,8 +22,9 @@ Fair prices for farmers. Transparency for consumers. Blockchain without cryptocu
 11. **AI Service** - Python-based quality grading & advanced fraud detection
 12. **Production Ready** - Nginx reverse proxy, PM2 process manager, PostgreSQL database
 
-### ✅ API Endpoints (6 REST Routes + USSD)
-- `POST /api/auth/login` - User authentication & session management
+### ✅ API Endpoints (7 REST Routes + USSD)
+- `POST /api/auth/signup` - **NEW:** User registration with mandatory database storage
+- `POST /api/auth/login` - User authentication (requires prior sign-up) & session management
 - `GET /api/crops/list` - Fetch all available crops with quality grades
 - `POST /api/offers/create` - Create new purchase offers (validated by smart contract)
 - `POST /api/payments/commit` - Record bank transfer & payment commitments
@@ -441,13 +442,17 @@ win_hack/
 │   ├── layout.tsx                         # Root layout & navbar
 │   ├── page.tsx                           # Landing page
 │   ├── globals.css                        # Tailwind CSS globals
+│   ├── login/page.tsx                     # **UPDATED:** Mandatory sign-up-first UI
 │   ├── admin/page.tsx                     # Admin dashboard
 │   ├── farmer/page.tsx                    # Farmer portal
 │   ├── buyer/page.tsx                     # Buyer marketplace
 │   ├── consumer/page.tsx                  # QR code tracing
+│   ├── verify-qr/page.tsx                 # QR verification page
 │   ├── ussd-simulation/page.tsx           # 📱 USSD dual-phone simulator
 │   └── api/                               # REST API routes
-│       ├── auth/login/route.ts            # Authentication endpoint
+│       ├── auth/
+│       │   ├── login/route.ts             # **UPDATED:** DB-backed authentication
+│       │   └── signup/route.ts            # **NEW:** User registration endpoint
 │       ├── crops/list/route.ts            # Get all crops
 │       ├── offers/create/route.ts         # Create new offer
 │       ├── payments/commit/route.ts       # Record payment
@@ -464,6 +469,15 @@ win_hack/
 │       └── Fair price validation (≥85% rule)
 │
 ├── lib/
+│   ├── db.ts                              # **NEW:** PostgreSQL connection pool
+│   │   ├── Pool management
+│   │   ├── Query execution
+│   │   └── Error handling
+│   ├── use-auth.ts                        # **UPDATED:** Auth hook with signup()
+│   │   ├── login() - DB-backed authentication
+│   │   ├── signup() - **NEW:** User registration
+│   │   ├── sendOTP() - OTP delivery
+│   │   └── logout() - Session cleanup
 │   ├── blockchain.ts                      # ethers.js provider & contract ABIs
 │   │   ├── Ganache provider configuration
 │   │   ├── Contract instance helpers
@@ -473,9 +487,10 @@ win_hack/
 │   │   ├── respondToUSSDRequest()
 │   │   ├── getIncomingRequests()
 │   │   └── Other USSD helpers
-│   └── ussd-hooks.ts                      # 📱 React hooks for Socket.IO
-│       ├── useUSSDSocket() - WebSocket management
-│       └── useUSSDMenu() - Menu state management
+│   ├── ussd-hooks.ts                      # 📱 React hooks for Socket.IO
+│   │   ├── useUSSDSocket() - WebSocket management
+│   │   └── useUSSDMenu() - Menu state management
+│   └── pg.d.ts                            # **NEW:** TypeScript declaration for pg module
 │
 ├── backend/
 │   ├── voice-api.js                       # Express.js voice/USSD API + WebSocket
@@ -591,11 +606,27 @@ Offer: ₹25/kg → REJECTED 🚨
 ## 📡 API Endpoints
 
 ### Authentication
+
+**New User Sign-Up (Mandatory)**
+```
+POST /api/auth/signup
+Body: { phone, name, role, email?, bankAccount?, ifsCode?, upiId?, location? }
+Response: { success, message, user: { id, phone, name, role, createdAt } }
+```
+
+**Existing User Login** 
 ```
 POST /api/auth/login
-Body: { phone, name, role }
-Response: { token, userId, role }
+Body: { phone, role }
+Response: { success, token, userId, phone, name, role, trustScore }
+Note: User must exist in PostgreSQL users table (created via sign-up first)
 ```
+
+**Flow Requirements:**
+1. All users MUST sign up first via `/api/auth/signup`
+2. Sign-up data is stored in PostgreSQL `users` table
+3. Login endpoint verifies user exists in database before issuing token
+4. Users without database records cannot login
 
 ### Crops
 ```
